@@ -2,13 +2,7 @@
 
 #include "common/config.h"
 
-#define MappingType std::pair<KeyType, ValueType>
-
-#define FULL_INDEX_TEMPLATE_ARGUMENTS_DEFN \
-  template <typename KeyType, typename ValueType, ssize_t NumTombs = 0>
-#define FULL_INDEX_TEMPLATE_ARGUMENTS \
-  template <typename KeyType, typename ValueType, ssize_t NumTombs>
-#define INDEX_TEMPLATE_ARGUMENTS template <typename KeyType, typename ValueType>
+#define INDEX_TEMPLATE_ARGUMENTS template <typename KeyType, typename ValueType, typename Compare>
 
 enum class IndexPageType { INVALID_INDEX_PAGE = 0, LEAF_PAGE, INTERNAL_PAGE };
 
@@ -40,5 +34,6 @@ class BPlusTreeHeaderPage {
   BPlusTreeHeaderPage(const BPlusTreeHeaderPage &other) = delete;
 
   page_id_t root_page_id_;
+  int magic_num_;
 };
 

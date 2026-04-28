@@ -1,5 +1,5 @@
 add_library(
-  lib_buffer
+  _buffer
   STATIC
   buffer_pool_manager.cpp
   replacer.cpp

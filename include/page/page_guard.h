@@ -1,10 +1,12 @@
 
 #pragma once
 
-#include <memory>
+#include "buffer/replacer.h"
 #include "common/config.h"
+#include "shared_ptr/shared_ptr.hpp"
 
-using std::shared_ptr;
+using sjtu::shared_ptr;
+using sjtu::make_shared;
 
 class BufferPoolManager;
 class FrameInfo;
@@ -30,10 +32,11 @@ class ReadPageGuard {
   ~ReadPageGuard();
 
  private:
-  explicit ReadPageGuard(shared_ptr<FrameInfo> frame);
+  explicit ReadPageGuard(shared_ptr<FrameInfo> frame, shared_ptr<Replacer> replacer/*, std::shared_ptr<std::mutex> bpm_latch, std::shared_ptr<DiskScheduler> disk_scheduler*/);
   shared_ptr<FrameInfo> frame_;
+  shared_ptr<Replacer> replacer_;
   //std::shared_ptr<std::mutex> bpm_latch_;
-  bool is_valid_{false};
+  bool is_valid_ = false;
   //std::shared_lock<std::shared_mutex> lock_;
 };
 
@@ -65,10 +68,11 @@ class WritePageGuard {
 
  private:
   /** @brief Only the buffer pool manager is allowed to construct a valid `WritePageGuard.` */
-  explicit WritePageGuard(shared_ptr<FrameInfo> frame);
+  explicit WritePageGuard(shared_ptr<FrameInfo> frame ,shared_ptr<Replacer> replacer/*, std::shared_ptr<std::mutex> bpm_latch, std::shared_ptr<DiskScheduler> disk_scheduler*/);
   shared_ptr<FrameInfo> frame_;
+  shared_ptr<Replacer> replacer_;
   //std::shared_ptr<std::mutex> bpm_latch_;
-  bool is_valid_{false};
+  bool is_valid_ = false;
   //std::unique_lock<std::shared_mutex> lock_;
 };
 

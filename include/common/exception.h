@@ -1,5 +1,4 @@
-#ifndef UTILS
-#define UTILS
+# pragma once
 
 #include <iostream>
 #include <exception>
@@ -86,5 +85,3 @@ template<class T>
 Expect<T> expect(const T &t) {
     return Expect<T>(t);
 }
-
-#endif
