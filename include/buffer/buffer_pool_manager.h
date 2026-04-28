@@ -36,14 +36,25 @@ class FrameInfo {
   ~FrameInfo() = default;
 };
 
+
+struct HashEntry {
+  page_id_t page_id = INVALID_PAGE_ID;
+  frame_id_t frame_id = INVALID_FRAME_ID;
+  bool used = false;
+};
+
 class BufferPoolManager {
  private:
   vector<shared_ptr<FrameInfo>> frame_info_;
   shared_ptr<Replacer> replacer_;
+  vector<frame_id_t> free_list_;
+  HashEntry hash_table[HASH_SIZE];
   size_t frame_num_;
   vector<shared_ptr<DiskManager>> disk_manager_;
+  void UseFrame(frame_id_t frame_id, page_id_t page_id, bool is_write);
   void Evict(frame_id_t frame_id, page_id_t page_id);
   void Access(frame_id_t frame_id);
+  auto FindFrame(page_id_t page_id) -> frame_id_t;
  public:
   BufferPoolManager(size_t frame_num, vector<shared_ptr<DiskManager>> &disk_manager);
   ~BufferPoolManager();

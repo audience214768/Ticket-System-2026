@@ -35,7 +35,7 @@ DiskManager::~DiskManager() {
 }
 
 void DiskManager::ReadPage(page_id_t page_id, char *data) {
-  auto offset = OFFSET(page_id % DISK_PAGE_SIZE);
+  auto offset = OFFSET(page_id % DISK_FILE_SIZE);
   if (offset >= GetGileSize()) {
     memset(data, 0, DISK_PAGE_SIZE);
     return;
@@ -45,7 +45,7 @@ void DiskManager::ReadPage(page_id_t page_id, char *data) {
 }
 
 void DiskManager::WritePage(page_id_t page_id, const char *data) {
-  db_file_io_.seekp(OFFSET(page_id % DISK_PAGE_SIZE));
+  db_file_io_.seekp(OFFSET(page_id % DISK_FILE_SIZE));
   db_file_io_.write(data, DISK_PAGE_SIZE);
   db_file_io_.flush();
 }
@@ -61,7 +61,7 @@ auto DiskManager::NewPage() -> page_id_t{
 }
 
 void DiskManager::DeletePage(page_id_t page_id) {
-  db_file_io_.seekp(OFFSET(page_id % DISK_PAGE_SIZE));
+  db_file_io_.seekp(OFFSET(page_id % DISK_FILE_SIZE));
   db_file_io_.write(reinterpret_cast<const char *>(&next_free_page_), sizeof(page_id_t));
   next_free_page_ = page_id;
 }

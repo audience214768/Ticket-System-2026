@@ -50,7 +50,7 @@ class Compare {
 int main() {
   vector<shared_ptr<DiskManager>> disk_manager;
   disk_manager.push_back(make_shared<DiskManager>(0, "data"));
-  shared_ptr<BufferPoolManager> bpm = make_shared<BufferPoolManager>(50, disk_manager);
+  shared_ptr<BufferPoolManager> bpm = make_shared<BufferPoolManager>(3000, disk_manager);
   BPlusTree<ComposedKey<64>, int, Compare> tree(0, 0, bpm);
   int n;
   cin >> n;
