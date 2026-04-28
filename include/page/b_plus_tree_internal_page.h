@@ -13,7 +13,7 @@ using std::endl;
 #define B_PLUS_TREE_INTERNAL_PAGE_TYPE BPlusTreeInternalPage<KeyType, ValueType, Compare>
 #define INTERNAL_PAGE_HEADER_SIZE 12
 #define INTERNAL_PAGE_SLOT_CNT \
-  ((DISK_PAGE_SIZE - INTERNAL_PAGE_HEADER_SIZE) / ((int)(sizeof(KeyType) + sizeof(ValueType))))
+  ((DISK_PAGE_SIZE - INTERNAL_PAGE_HEADER_SIZE) / ((sizeof(KeyType) + sizeof(ValueType))))
 
 INDEX_TEMPLATE_ARGUMENTS
 class BPlusTreeInternalPage : public BPlusTreePage {
@@ -52,7 +52,7 @@ class BPlusTreeInternalPage : public BPlusTreePage {
         cerr << ",";
       }
 
-      cerr << key << " " << ValueAt(i);
+      cerr << key.GetKey() << " " << key.rid << " " << ValueAt(i);
     }
     cerr << ")" << endl;
   }
@@ -64,6 +64,9 @@ class BPlusTreeInternalPage : public BPlusTreePage {
 
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_INTERNAL_PAGE_TYPE::Init(int max_size) {
+  if (max_size == 0) {
+    max_size = INTERNAL_PAGE_SLOT_CNT;
+  }
   SetMaxSize(max_size);
   SetSize(0);
   SetPageType(IndexPageType::INTERNAL_PAGE);
@@ -113,6 +116,7 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::Search(const KeyType &key, const Compare &c
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_INTERNAL_PAGE_TYPE::Insert(const KeyType &key, page_id_t page_id, const Compare &compare) {
   int index = Search(key, compare);
+  //std::cerr << GetSize() << " " << GetMaxSize() << " " << sizeof(KeyType) << " " << sizeof(ValueType) << " " << ((DISK_PAGE_SIZE - INTERNAL_PAGE_HEADER_SIZE) / ((sizeof(KeyType) + sizeof(ValueType)))) << " " << INTERNAL_PAGE_SLOT_CNT << std::endl;
   //std::cerr << key << " insert in the " << index << std::endl;
   for(int i = GetSize(); i > index + 1; i--) {
     key_array_[i] = key_array_[i - 1];

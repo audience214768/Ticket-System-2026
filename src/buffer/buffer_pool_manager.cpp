@@ -81,7 +81,6 @@ auto BufferPoolManager::ReadPage(page_id_t page_id) -> ReadPageGuard {
     if(free_list_.empty()) {
       auto evict_frame_id = replacer_->Evict();
       Evict(evict_frame_id, page_id);
-      Access(evict_frame_id);
       return ReadPageGuard(frame_info_[evict_frame_id], replacer_);
     }
     auto free_frame = free_list_.back();

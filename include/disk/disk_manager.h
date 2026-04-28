@@ -33,7 +33,7 @@ class DiskManager {
   page_id_t next_page_id_ = 1;
 
   int info_len = 2;
-  #define OFFSET(page_id) (page_id) * DISK_PAGE_SIZE + info_len *sizeof(page_id_t)
+  #define OFFSET(page_id) ((page_id) * DISK_PAGE_SIZE + info_len *sizeof(page_id_t))
 
  public:
   DiskManager() = delete;
@@ -47,6 +47,6 @@ class DiskManager {
 
   void WriteLog(const char *log, int size);
 
-  auto GetGileSize() -> size_t;
+  auto GetFileSize() -> size_t;
 
 };

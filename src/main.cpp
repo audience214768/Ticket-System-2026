@@ -9,8 +9,8 @@ using std::cout;
 using std::endl;
 
 template <size_t len>
-struct KeyType {
-  char key[len];
+struct FixedString {
+  char key[len]{};
   auto ToString() const -> string {
     return string(key);
   }
@@ -18,7 +18,7 @@ struct KeyType {
 
 template<size_t len>
 struct ComposedKey {
-  KeyType<len> key;
+  FixedString<len> key;
   int rid;
   bool is_min = false;
   auto GetKey() const -> string {
@@ -55,6 +55,18 @@ int main() {
   int n;
   cin >> n;
   for(int i = 0; i < n; i++) {
+    //std::cerr << i << std::endl;
+    // {
+    //   std::cerr << i << std::endl;
+    //   ReadPageGuard guard = bpm->ReadPage(54);
+    //   auto header_page = guard.As<BPlusTreeInternalPage<ComposedKey<64>, page_id_t, Compare>>();
+    //   std::cerr << "54 : ";
+    //   header_page->ToString();
+    //   guard = bpm->ReadPage(67);
+    //   auto leaf_page = guard.As<BPlusTreeLeafPage<ComposedKey<64>, int, Compare>>();
+    //   std::cerr << "67 : ";leaf_page->ToString();
+    //   //std::cerr << header_page->magic_num_ << " " << header_page->root_page_id_ << std::endl;
+    // }
     string cmd;
     cin >> cmd;
     if (cmd == "insert") {
@@ -68,10 +80,10 @@ int main() {
         vector<int> result;
         tree.GetValue(key, &result);
         if(!result.empty()) {
-          for(int v : result) {
-            cout << v << " ";
+          for(int i = 0; i < result.size() - 1; i++) {
+            cout << result[i] << " ";
           }
-          cout << endl;
+          cout << result[result.size() - 1] << endl;
         } else {
           cout << "null" << endl;
         }

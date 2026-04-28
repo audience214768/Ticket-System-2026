@@ -34,8 +34,8 @@ class BPlusTreeLeafPage : public BPlusTreePage {
   void Merge(B_PLUS_TREE_LEAF_PAGE_TYPE *other);
   //void FlushTomb();
   
-  auto ToString() const -> string {
-    string kstr = "(";
+  void ToString() const {
+    std::cerr << "(";
     bool first = true;
 
     for (int i = 0; i < GetSize(); i++) {
@@ -43,14 +43,12 @@ class BPlusTreeLeafPage : public BPlusTreePage {
       if (first) {
         first = false;
       } else {
-        kstr.append(",");
+        std::cerr << ",";
       }
 
-      kstr.append(to_string(key.ToString()));
+      std::cerr << key.GetKey() << " " << ValueAt(i);
     }
-    kstr.append(")");
-
-    return kstr;
+    std::cerr << ")" << std::endl;
   }
 
  private:
@@ -61,6 +59,9 @@ class BPlusTreeLeafPage : public BPlusTreePage {
 
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_LEAF_PAGE_TYPE::Init(int max_size) {
+  if (max_size == 0) {
+    max_size = LEAF_PAGE_SLOT_CNT;
+  }
   SetMaxSize(max_size);
   SetSize(0);
   //num_tombstones_ = 0;
@@ -184,5 +185,6 @@ void B_PLUS_TREE_LEAF_PAGE_TYPE::Merge(B_PLUS_TREE_LEAF_PAGE_TYPE *other) {
     rid_array_[i] = other->rid_array_[i - GetSize()];
   }
   SetSize(GetSize() + other->GetSize());
+  other->SetSize(0);
 }
 

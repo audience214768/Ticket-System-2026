@@ -37,8 +37,8 @@ class BPlusTree {
 
  public:
   explicit BPlusTree(size_t file_id, page_id_t header_page_id,shared_ptr<BufferPoolManager> buffer_pool_manager, 
-  int leaf_max_size = LEAF_PAGE_SLOT_CNT, 
-  int internal_max_size = INTERNAL_PAGE_SLOT_CNT);
+  int leaf_max_size = 0, 
+  int internal_max_size = 0);
   
   // Returns true if this B+ tree has no keys and values.
   auto IsEmpty() const -> bool;
@@ -81,6 +81,7 @@ int internal_max_size)
     header_page->root_page_id_ = INVALID_PAGE_ID;
     header_page->magic_num_ = 0xDEADBEEF;
   }
+  //std::cerr << LEAF_PAGE_SLOT_CNT << " " << INTERNAL_PAGE_SLOT_CNT << std::endl;
 }
 
 INDEX_TEMPLATE_ARGUMENTS
@@ -98,6 +99,10 @@ auto BPLUSTREE_TYPE::FindLeaf(const KeyType &key, Context &ctx, bool is_opt) -> 
     ctx.root_page_id_ = header_page->root_page_id_;
     ReadPageGuard page = bpm_->ReadPage(header_page->root_page_id_);
     while (!page.As<BPlusTreePage>()->IsLeafPage()) {
+      // if (key.GetKey() == "Book15" && key.rid == 85) {
+      //   std::cerr << page.GetPageId() << " ";
+      //   page.As<InternalPage>()->ToString();
+      // }
       const InternalPage *internal_page = page.As<InternalPage>();
       if (internal_page->GetSize() > internal_page->GetMinSize() + 1 &&
           internal_page->GetSize() < internal_page->GetMaxSize()) {
@@ -145,6 +150,15 @@ void BPLUSTREE_TYPE::GetValue(const KeyType &key, vector<ValueType> *result) {
     for (; i < leaf_page->GetSize() && leaf_page->KeyAt(i).GetKey() == key.GetKey(); i++) {
       result->push_back(leaf_page->ValueAt(i));
     }
+    // if (key.GetKey() == "Book15") {
+    //   std::cerr << leaf_page_guard.GetPageId() << " " << leaf_page->GetSize() << " " << leaf_page->GetMaxSize() << " ";
+    //   leaf_page->ToString();
+
+    //   ReadPageGuard next_page_guard = bpm_->ReadPage(leaf_page->GetNextPageId());
+    //   auto next_page = next_page_guard.As<LeafPage>();
+    //   std::cerr << next_page_guard.GetPageId() << " ";
+    //   next_page->ToString();
+    // }
     if (i == leaf_page->GetSize() && leaf_page->GetNextPageId() != INVALID_PAGE_ID) {
       leaf_page_guard = std::move(bpm_->ReadPage(leaf_page->GetNextPageId()));
       leaf_page = leaf_page_guard.As<LeafPage>();
@@ -158,6 +172,7 @@ void BPLUSTREE_TYPE::GetValue(const KeyType &key, vector<ValueType> *result) {
 
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value) -> bool {
+  //std::cerr << "insert" << std::endl;
   {
     WritePageGuard header_page_guard = bpm_->WritePage(header_page_id_);
     auto header_page = header_page_guard.AsMut<BPlusTreeHeaderPage>();
@@ -177,10 +192,15 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value) -> bool 
     auto leaf_page_id = FindLeaf(key, ctx, true);
     WritePageGuard leaf_page_guard = bpm_->WritePage(leaf_page_id);
     LeafPage *leaf_page = leaf_page_guard.AsMut<LeafPage>();
+    // if (key.GetKey() == "Book15" && key.rid == 85) {
+    //   //std::cerr << leaf_page_guard.GetPageId() << " " << leaf_page->GetSize() << " " << leaf_page->GetMaxSize() << " ";
+    //   leaf_page->ToString();
+    // }
     if(leaf_page->GetSize() < leaf_page->GetMaxSize() - 1) {
       return leaf_page->Insert(key, value, compare_);
     }
   }
+  //std::cerr << "check1" << std::endl;
   Context ctx;
   auto leaf_page_id = FindLeaf(key, ctx, false);
   WritePageGuard leaf_page_guard = bpm_->WritePage(leaf_page_id);
@@ -189,6 +209,7 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value) -> bool 
     return false;
   }
   auto new_page_id = bpm_->NewPage(file_id_);
+  //std::cerr << new_page_id << std::endl;
   WritePageGuard guard = bpm_->WritePage(new_page_id);
   LeafPage* new_leaf_page = guard.AsMut<LeafPage>();
   new_leaf_page->Init(leaf_max_size_);
@@ -210,7 +231,14 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value) -> bool 
     new_internal_page->Init(internal_max_size_);
     new_internal_page->SetPageType(IndexPageType::INTERNAL_PAGE);
     auto index = father_page->Search(insert_key, compare_);
+    // if (new_page_id == 54) {
+    //   father_page->ToString();
+    // }
     KeyType new_key = new_internal_page->MoveHalf(father_page, insert_key, right_page_id, index);
+    // if (new_page_id == 54) {
+    //   father_page->ToString();
+    //   new_internal_page->ToString();
+    // }
     insert_key = new_key;
     right_page_id = new_page_id;
     left_page_id = ctx.write_set_.back().GetPageId();
