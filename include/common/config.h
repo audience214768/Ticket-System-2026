@@ -11,5 +11,5 @@ constexpr int FILE_BIT = 16;
 constexpr page_id_t INVALID_PAGE_ID = -1;
 constexpr size_t INF_TIME_STAMP = -1;
 constexpr frame_id_t INVALID_FRAME_ID = -1; 
-constexpr size_t HASH_SIZE = DISK_FILE_SIZE * 10;
+constexpr size_t HASH_SIZE = DISK_FILE_SIZE * 8;
 
