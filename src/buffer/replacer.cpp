@@ -1,29 +1,25 @@
 #include "buffer/replacer.h"
 #include "common/config.h"
 
-Replacer::Replacer(size_t frame_num, size_t k):frame_num_(frame_num), k_(k), node_store_(frame_num, Node(k)) {}
+LRUKReplacer::LRUKReplacer(size_t frame_num, size_t k)
+    : frame_num_(frame_num), k_(k), node_store_(frame_num, Node(k)) {}
 
-void Replacer::Access(frame_id_t frame_id) {
+void LRUKReplacer::Access(frame_id_t frame_id) {
   node_store_[frame_id].Visit(curr_time++);
 }
 
-auto Replacer::Evict() ->frame_id_t {
+auto LRUKReplacer::Evict() -> frame_id_t {
   frame_id_t evict_id = INVALID_FRAME_ID;
-  // int count = 0;
-  // for (int i = 0; i < frame_num_; i++) {
-  //   if (node_store_[i].is_evictable_ == false) {
-  //     count++;
-  //   }
-  // }
-  // std::cerr << count << std::endl;
   for (int i = 0; i < frame_num_; i++) {
-    if(node_store_[i].history_.empty() || node_store_[i].is_evictable_ == false) {
+    if (node_store_[i].history_.empty() ||
+        node_store_[i].is_evictable_ == false) {
       continue;
     }
     if (evict_id == INVALID_FRAME_ID) {
       evict_id = i;
     } else if (node_store_[evict_id].KTime() > node_store_[i].KTime() ||
-               (node_store_[evict_id].KTime() == node_store_[i].KTime() && node_store_[evict_id].LastTime() > node_store_[i].LastTime())) {
+               (node_store_[evict_id].KTime() == node_store_[i].KTime() &&
+                node_store_[evict_id].LastTime() > node_store_[i].LastTime())) {
       evict_id = i;
     }
   }
@@ -31,6 +27,32 @@ auto Replacer::Evict() ->frame_id_t {
   return evict_id;
 }
 
-void Replacer::SetEvictable(frame_id_t frame_id, bool set_evictable) {
+void LRUKReplacer::SetEvictable(frame_id_t frame_id, bool set_evictable) {
   node_store_[frame_id].is_evictable_ = set_evictable;
+}
+
+ClockReplacer::ClockReplacer(size_t frame_num) : ref_(frame_num, false), evictable_(frame_num, true){}
+
+void ClockReplacer::Access(frame_id_t frame_id) {
+  ref_[frame_id] = true;
+}
+
+void ClockReplacer::SetEvictable(frame_id_t frame_id, bool enable) {
+  evictable_[frame_id] = enable;
+}
+// 3. 淘汰帧：跳过不可淘汰的页，保持Clock原生速度
+auto ClockReplacer::Evict() -> frame_id_t {
+  while (true) {
+    if (!evictable_[hand_]) {
+      hand_ = (hand_ + 1) % ref_.size();
+      continue;
+    }
+    if (!ref_[hand_]) {
+      int victim = hand_;
+      hand_ = (hand_ + 1) % ref_.size();
+      return victim;
+    }
+    ref_[hand_] = false;
+    hand_ = (hand_ + 1) % ref_.size();
+  }
 }

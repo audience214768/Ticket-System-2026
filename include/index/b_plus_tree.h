@@ -141,9 +141,7 @@ void BPLUSTREE_TYPE::GetValue(const KeyType &key, vector<ValueType> *result) {
   if(IsEmpty()) {
     return ;
   }
-  //std::cerr << "get value" << std::endl;
   auto leaf_page_id = FindLeaf(key, ctx, true);
-  //std::cerr << "check" << std::endl;
   ReadPageGuard leaf_page_guard = bpm_->ReadPage(leaf_page_id);
   const LeafPage *leaf_page = leaf_page_guard.As<LeafPage>();
   auto index = leaf_page->Search(key, compare_);
@@ -152,15 +150,6 @@ void BPLUSTREE_TYPE::GetValue(const KeyType &key, vector<ValueType> *result) {
     for (; i < leaf_page->GetSize() && leaf_page->KeyAt(i).GetKey() == key.GetKey(); i++) {
       result->push_back(leaf_page->ValueAt(i));
     }
-    // if (key.GetKey() == "Book15") {
-    //   std::cerr << leaf_page_guard.GetPageId() << " " << leaf_page->GetSize() << " " << leaf_page->GetMaxSize() << " ";
-    //   leaf_page->ToString();
-
-    //   ReadPageGuard next_page_guard = bpm_->ReadPage(leaf_page->GetNextPageId());
-    //   auto next_page = next_page_guard.As<LeafPage>();
-    //   std::cerr << next_page_guard.GetPageId() << " ";
-    //   next_page->ToString();
-    // }
     if (i == leaf_page->GetSize() && leaf_page->GetNextPageId() != INVALID_PAGE_ID) {
       leaf_page_guard = std::move(bpm_->ReadPage(leaf_page->GetNextPageId()));
       leaf_page = leaf_page_guard.As<LeafPage>();

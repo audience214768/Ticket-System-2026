@@ -1,8 +1,8 @@
 
 #pragma once
 
-#include "buffer/replacer.h"
 #include "common/config.h"
+#include "buffer/replacer.h"
 #include "shared_ptr/shared_ptr.hpp"
 
 using sjtu::shared_ptr;

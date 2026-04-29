@@ -10,7 +10,7 @@ using sjtu::make_shared;
 
 BufferPoolManager::BufferPoolManager(size_t frame_num, vector<shared_ptr<DiskManager>> &disk_manager)
   : frame_num_(frame_num),
-    replacer_(make_shared<Replacer>(frame_num, 2)),
+    replacer_(make_shared<Replacer>(frame_num)),
     disk_manager_(disk_manager) {
   frame_info_.reserve(frame_num);
   free_list_.reserve(frame_num);
@@ -37,6 +37,7 @@ auto BufferPoolManager::FindFrame(page_id_t page_id) -> frame_id_t {
   int tmp = idx;
   while (hash_table[idx].used) {
     if (hash_table[idx].page_id == page_id) {
+      //std::cerr << "get " << (tmp - idx) << std::endl;
       return hash_table[idx].frame_id;
     }
     idx = (idx + 1) & (HASH_SIZE - 1);
@@ -44,6 +45,7 @@ auto BufferPoolManager::FindFrame(page_id_t page_id) -> frame_id_t {
       break;
     }
   }
+  //std::cerr << "fail " << idx - tmp << std::endl;
   return INVALID_FRAME_ID;
 }
 
@@ -59,11 +61,6 @@ void BufferPoolManager::UseFrame(frame_id_t frame_id, page_id_t page_id, bool is
   frame_info_[frame_id]->page_id_ = page_id;
   frame_info_[frame_id]->is_dirty_ = is_write;
   disk_manager_[page_id >> FILE_BIT]->ReadPage(page_id, frame_info_[frame_id]->GetDataMut());
-  // if (page_id == 3) {
-  //   Access(frame_id);
-  //   ReadPageGuard guard = ReadPageGuard(frame_info_[frame_id], replacer_);
-  //   std::cerr << guard.As<BPlusTreePage>()->IsLeafPage() << std::endl;
-  // }
   Access(frame_id);
 }
 
@@ -82,6 +79,7 @@ auto BufferPoolManager::WritePage(page_id_t page_id) -> WritePageGuard {
     UseFrame(free_frame, page_id, true);
     return WritePageGuard(frame_info_[free_frame], replacer_);
   }
+  //std::cerr << "cache hit" << std::endl;
   frame_info_[frame_id]->is_dirty_ = true;
   Access(frame_id);
   return WritePageGuard(frame_info_[frame_id], replacer_);
@@ -100,6 +98,7 @@ auto BufferPoolManager::ReadPage(page_id_t page_id) -> ReadPageGuard {
     UseFrame(free_frame, page_id, false);
     return ReadPageGuard(frame_info_[free_frame], replacer_);
   }
+  //std::cerr << "cache hit" << std::endl;
   Access(frame_id);
   return ReadPageGuard(frame_info_[frame_id], replacer_);
 }
@@ -138,6 +137,7 @@ void BufferPoolManager::Evict(frame_id_t frame_id, page_id_t page_id) {
   //   // ReadPageGuard guard(frame_info_[frame_id], replacer_);
   //   // std::cerr << guard.As<BPlusTreePage>()->IsLeafPage() << std::endl;
   // }
+  //std::cerr << "cache miss" << std::endl;
   if (frame_info_[frame_id]->is_dirty_) {
     disk_manager_[frame_info_[frame_id]->page_id_ >> FILE_BIT]->WritePage(frame_info_[frame_id]->page_id_, frame_info_[frame_id]->GetData());
   }

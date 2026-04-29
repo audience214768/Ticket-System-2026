@@ -20,11 +20,6 @@ int main() {
   int n;
   cin >> n;
   for(int i = 0; i < n; i++) {
-    //std::cerr << i << std::endl;
-    // {
-    // ReadPageGuard guard = bpm->ReadPage(3);
-    // guard.As<BPlusTreeInternalPage<ComposedKey<65>, page_id_t, Compare>>()->ToString();
-    // }
     string cmd;
     cin >> cmd;
     if (cmd == "insert") {
