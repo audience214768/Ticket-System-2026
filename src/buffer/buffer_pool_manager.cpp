@@ -10,7 +10,7 @@ using sjtu::make_shared;
 
 BufferPoolManager::BufferPoolManager(size_t frame_num, vector<shared_ptr<DiskManager>> &disk_manager)
   : frame_num_(frame_num),
-    replacer_(make_shared<Replacer>(frame_num, 3)),
+    replacer_(make_shared<Replacer>(frame_num, 2)),
     disk_manager_(disk_manager) {
   frame_info_.reserve(frame_num);
   free_list_.reserve(frame_num);
