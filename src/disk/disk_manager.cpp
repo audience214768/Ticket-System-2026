@@ -10,6 +10,7 @@ DiskManager::DiskManager(size_t file_id, const string &db_file_name):fileID_(fil
     db_file_io_.clear();
     db_file_io_.open(db_file_name_, ios::out | ios::binary | ios::trunc | ios::in);
   } else {
+    db_file_io_.clear();
     db_file_io_.seekg(0);
     db_file_io_.read(reinterpret_cast<char *>(&next_free_page_), sizeof(page_id_t));
     db_file_io_.seekg(sizeof(page_id_t));
@@ -26,6 +27,7 @@ DiskManager::DiskManager(size_t file_id, const string &db_file_name):fileID_(fil
 }
 
 DiskManager::~DiskManager() {
+  db_file_io_.clear();
   db_file_io_.seekp(0);
   db_file_io_.write(reinterpret_cast<const char *>(&next_free_page_), sizeof(page_id_t));
   db_file_io_.seekp(sizeof(page_id_t));
@@ -41,12 +43,16 @@ void DiskManager::ReadPage(page_id_t page_id, char *data) {
     memset(data, 0, DISK_PAGE_SIZE);
     return;
   }
+  db_file_io_.clear();
   db_file_io_.seekg(offset);
   db_file_io_.read(data, DISK_PAGE_SIZE);
 }
 
 void DiskManager::WritePage(page_id_t page_id, const char *data) {
-  //std::cerr << "write " << page_id << std::endl;
+  // if (page_id == 1452) {
+  //   std::cerr << "write " << page_id << std::endl;
+  // }
+  db_file_io_.clear();
   db_file_io_.seekp(OFFSET(page_id % DISK_FILE_SIZE));
   db_file_io_.write(data, DISK_PAGE_SIZE);
   db_file_io_.flush();
@@ -57,10 +63,7 @@ auto DiskManager::NewPage() -> page_id_t{
     page_id_t last_free_page = next_free_page_;
     db_file_io_.clear();
     db_file_io_.seekg(OFFSET(next_free_page_ % DISK_FILE_SIZE));
-    //db_file_io_.read(reinterpret_cast<char *>(&next_free_page_), sizeof(page_id_t));
-    if(!db_file_io_.read(reinterpret_cast<char *>(&next_free_page_), sizeof(page_id_t))) {
-      std::cerr << "READ FAIL! Page: " << last_free_page << std::endl;
-    }
+    db_file_io_.read(reinterpret_cast<char *>(&next_free_page_), sizeof(page_id_t));
     //std::cerr << "new " << last_free_page << " " << next_free_page_ << std::endl;
     return (fileID_ << FILE_BIT) | last_free_page;
   }
@@ -71,9 +74,7 @@ void DiskManager::DeletePage(page_id_t page_id) {
   //std::cerr << "delete " << page_id << " " << next_free_page_ << std::endl;
   db_file_io_.clear();
   db_file_io_.seekp(OFFSET(page_id % DISK_FILE_SIZE));
-  if (!db_file_io_.write(reinterpret_cast<const char *>(&next_free_page_), sizeof(page_id_t))) {
-    std::cerr << "WRITE FAIL! Page: " << page_id << std::endl;
-  }
+  db_file_io_.write(reinterpret_cast<const char *>(&next_free_page_), sizeof(page_id_t));
   db_file_io_.flush();
   next_free_page_ = page_id;
 }
@@ -83,6 +84,7 @@ void DiskManager::WriteLog(const char *log, int size) {
 }
 
 auto DiskManager::GetFileSize() -> size_t {
+  db_file_io_.clear();
   auto current_pos = db_file_io_.tellg();
   db_file_io_.seekg(0, ios::end);
   size_t size = db_file_io_.tellg();

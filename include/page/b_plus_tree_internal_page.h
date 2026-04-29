@@ -205,10 +205,23 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::MoveFront(B_PLUS_TREE_INTERNAL_PAGE_TYPE *o
 
 INDEX_TEMPLATE_ARGUMENTS
 void B_PLUS_TREE_INTERNAL_PAGE_TYPE::Merge(B_PLUS_TREE_INTERNAL_PAGE_TYPE *other, const KeyType &key) {
+  // for (int i = 0; i < GetSize(); i++) {
+  //   std::cerr << page_id_array_[i] << " ";
+  // }
+  // std::cerr << std::endl;
+  // for (int i = 0; i < other->GetSize(); i++) {
+  //   std::cerr << other->page_id_array_[i] << " ";
+  // }
+  // std::cerr << GetSize() << " " << other->GetSize() << " " << INTERNAL_PAGE_SLOT_CNT << std::endl;
   for(int i = GetSize(); i < GetSize() + other->GetSize(); i++) {
-    key_array_[i] = i == GetSize() ? key : other->key_array_[i - GetSize()];
+    key_array_[i] = (i == GetSize() ? key : other->key_array_[i - GetSize()]);
     page_id_array_[i] = other->page_id_array_[i - GetSize()];
   }
   SetSize(GetSize() + other->GetSize());
+  // for (int i = 0; i < GetSize(); i++) {
+  //   std::cerr << page_id_array_[i] << " ";
+  // }
+  // std::cerr << std::endl;
+  other->SetSize(0);
 }
 

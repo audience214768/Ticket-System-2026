@@ -2,6 +2,8 @@
 #include "buffer/replacer.h"
 #include "common/config.h"
 #include "disk/disk_manager.h"
+#include "page/b_plus_tree_leaf_page.h"
+#include "page/b_plus_tree_page.h"
 #include "page/page_guard.h"
 
 using sjtu::make_shared;
@@ -19,7 +21,11 @@ BufferPoolManager::BufferPoolManager(size_t frame_num, vector<shared_ptr<DiskMan
 }
 
 auto BufferPoolManager::NewPage(size_t file_id) -> page_id_t { 
-  return disk_manager_[file_id]->NewPage(); 
+  auto page_id = disk_manager_[file_id]->NewPage();
+  // if (page_id == 3) {
+  //   std::cerr << "new page " << page_id << std::endl;
+  // }
+  return page_id; 
 }
 
 inline auto hash(page_id_t page_id) -> int {
@@ -53,10 +59,16 @@ void BufferPoolManager::UseFrame(frame_id_t frame_id, page_id_t page_id, bool is
   frame_info_[frame_id]->page_id_ = page_id;
   frame_info_[frame_id]->is_dirty_ = is_write;
   disk_manager_[page_id >> FILE_BIT]->ReadPage(page_id, frame_info_[frame_id]->GetDataMut());
+  // if (page_id == 3) {
+  //   Access(frame_id);
+  //   ReadPageGuard guard = ReadPageGuard(frame_info_[frame_id], replacer_);
+  //   std::cerr << guard.As<BPlusTreePage>()->IsLeafPage() << std::endl;
+  // }
   Access(frame_id);
 }
 
 auto BufferPoolManager::WritePage(page_id_t page_id) -> WritePageGuard {
+  //std::cerr << "write page " << page_id << std::endl;
   frame_id_t frame_id = FindFrame(page_id);
   if(frame_id == INVALID_FRAME_ID) {
     if(free_list_.empty()) {
@@ -93,6 +105,9 @@ auto BufferPoolManager::ReadPage(page_id_t page_id) -> ReadPageGuard {
 }
 
 void BufferPoolManager::DeletePage(page_id_t page_id) {
+  // if (page_id == 3) {
+  //   std::cerr << "delete " << page_id << std::endl;
+  // }
   frame_id_t frame_id = FindFrame(page_id);
   if(frame_id == INVALID_FRAME_ID) {
     return ;
@@ -112,6 +127,17 @@ void BufferPoolManager::DeletePage(page_id_t page_id) {
 }
 
 void BufferPoolManager::Evict(frame_id_t frame_id, page_id_t page_id) {
+  // if (frame_info_[frame_id]->page_id_ == 3) {
+  //   std::cerr << "evict " << frame_info_[frame_id]->page_id_ << " for " << page_id << std::endl;
+  //   Access(frame_id);
+  //   ReadPageGuard guard(frame_info_[frame_id], replacer_);
+  //   std::cerr << guard.As<BPlusTreePage>()->IsLeafPage() << std::endl;
+  // }
+  // if (page_id == 3) {
+  //   std::cerr << "evict for " << page_id << std::endl;
+  //   // ReadPageGuard guard(frame_info_[frame_id], replacer_);
+  //   // std::cerr << guard.As<BPlusTreePage>()->IsLeafPage() << std::endl;
+  // }
   if (frame_info_[frame_id]->is_dirty_) {
     disk_manager_[frame_info_[frame_id]->page_id_ >> FILE_BIT]->WritePage(frame_info_[frame_id]->page_id_, frame_info_[frame_id]->GetData());
   }

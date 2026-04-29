@@ -99,7 +99,7 @@ auto BPLUSTREE_TYPE::FindLeaf(const KeyType &key, Context &ctx, bool is_opt) -> 
     ctx.root_page_id_ = header_page->root_page_id_;
     ReadPageGuard page = bpm_->ReadPage(header_page->root_page_id_);
     while (!page.As<BPlusTreePage>()->IsLeafPage()) {
-      // if (key.GetKey() == "Book15" && key.rid == 85) {
+      // if (key.GetKey() == "Book1022" && key.rid == 1942) {
       //   std::cerr << page.GetPageId() << " ";
       //   page.As<InternalPage>()->ToString();
       // }
@@ -141,7 +141,9 @@ void BPLUSTREE_TYPE::GetValue(const KeyType &key, vector<ValueType> *result) {
   if(IsEmpty()) {
     return ;
   }
+  //std::cerr << "get value" << std::endl;
   auto leaf_page_id = FindLeaf(key, ctx, true);
+  //std::cerr << "check" << std::endl;
   ReadPageGuard leaf_page_guard = bpm_->ReadPage(leaf_page_id);
   const LeafPage *leaf_page = leaf_page_guard.As<LeafPage>();
   auto index = leaf_page->Search(key, compare_);
@@ -209,6 +211,9 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value) -> bool 
     return false;
   }
   auto new_page_id = bpm_->NewPage(file_id_);
+  // if (new_page_id == 1452) {
+  //   std::cerr << "new page " << new_page_id << std::endl;
+  // }
   //std::cerr << new_page_id << std::endl;
   WritePageGuard guard = bpm_->WritePage(new_page_id);
   LeafPage* new_leaf_page = guard.AsMut<LeafPage>();
@@ -231,11 +236,11 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value) -> bool 
     new_internal_page->Init(internal_max_size_);
     new_internal_page->SetPageType(IndexPageType::INTERNAL_PAGE);
     auto index = father_page->Search(insert_key, compare_);
-    // if (new_page_id == 54) {
+    // if (new_page_id == 1452) {
     //   father_page->ToString();
     // }
     KeyType new_key = new_internal_page->MoveHalf(father_page, insert_key, right_page_id, index);
-    // if (new_page_id == 54) {
+    // if (new_page_id == 1452) {
     //   father_page->ToString();
     //   new_internal_page->ToString();
     // }
@@ -246,6 +251,9 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value) -> bool 
   }
   if (left_page_id == ctx.root_page_id_) {
     auto new_page_id = bpm_->NewPage(file_id_);
+    // if (new_page_id == 1452) {
+    //   std::cerr << "new root " << std::endl;
+    // }
     WritePageGuard guard = bpm_->WritePage(new_page_id);
     InternalPage *new_page = guard.AsMut<InternalPage>();
     new_page->Init(internal_max_size_);
@@ -270,8 +278,10 @@ auto BPLUSTREE_TYPE::Remove(const KeyType &key) -> bool {
     return false;
   }
   {
+    //std::cerr << "remove" << std::endl;
     Context ctx;
     auto leaf_page_id = FindLeaf(key, ctx, true);
+    //std::cerr << "check" << std::endl;
     WritePageGuard guard = bpm_->WritePage(leaf_page_id);
     LeafPage *leaf_page = guard.AsMut<LeafPage>();
     if (!leaf_page->Delete(key, compare_)) {
@@ -300,15 +310,18 @@ auto BPLUSTREE_TYPE::Remove(const KeyType &key) -> bool {
       WritePageGuard next_page_guard = bpm_->WritePage(father_page->ValueAt(index - 1));
       LeafPage *next_page = next_page_guard.AsMut<LeafPage>();
       if (next_page->GetSize() > next_page->GetMinSize()) {
+        //std::cerr << "borrow last" << std::endl;
         father_page->SetKeyAt(index, next_page->MoveBack(leaf_page));
         return true;
       } else {
+        //std::cerr << "merge last" << std::endl;
         remove_key = father_page->KeyAt(index);
         next_page->Merge(leaf_page);
         next_page->SetNextPageId(leaf_page->GetNextPageId());
         bpm_->DeletePage(leaf_page_id);
       }
     } else {
+      //std::cerr << "merge next" << std::endl;
       auto next_page_id = father_page->ValueAt(index + 1);
       WritePageGuard next_page_guard = bpm_->WritePage(next_page_id);
       LeafPage *next_page = next_page_guard.AsMut<LeafPage>();
@@ -332,7 +345,8 @@ auto BPLUSTREE_TYPE::Remove(const KeyType &key) -> bool {
     if (index != father_page->GetSize() - 1) {
       WritePageGuard next_page_guard = bpm_->WritePage(father_page->ValueAt(index + 1));
       InternalPage *next_page = next_page_guard.AsMut<InternalPage>();
-      if (next_page->GetSize() > next_page->GetMinSize() + 1) {
+      if (next_page->GetSize() > next_page->GetMinSize()) {
+        //std::cerr << "borrow next" << std::endl;
         father_page->SetKeyAt(index + 1, next_page->MoveFront(internal_page, father_page->KeyAt(index + 1)));
         break;
       }
@@ -340,20 +354,27 @@ auto BPLUSTREE_TYPE::Remove(const KeyType &key) -> bool {
     if (index != 0) {
       WritePageGuard next_page_guard = bpm_->WritePage(father_page->ValueAt(index - 1));
       InternalPage *next_page = next_page_guard.AsMut<InternalPage>();
-      if (next_page->GetSize() > next_page->GetMinSize() + 1) {
+      if (next_page->GetSize() > next_page->GetMinSize()) {
+        //std::cerr << "borrow last" << std::endl;
         father_page->SetKeyAt(index, next_page->MoveBack(internal_page, father_page->KeyAt(index)));
         break;
       } else {
+        //std::cerr << "merge last" << std::endl;
         remove_key = father_page->KeyAt(index);
         next_page->Merge(internal_page, remove_key);
         bpm_->DeletePage(page_id);
       }
     } else {
+      //std::cerr << "merge next" << std::endl;
       auto next_page_id = father_page->ValueAt(index + 1);
       WritePageGuard next_page_guard = bpm_->WritePage(next_page_id);
       InternalPage *next_page = next_page_guard.AsMut<InternalPage>();
       remove_key = father_page->KeyAt(index + 1);
+      //std::cerr << internal_page->GetSize() << " ";
+      //internal_page->ToString();
+      //next_page->ToString();
       internal_page->Merge(next_page, remove_key);
+      //internal_page->ToString();
       bpm_->DeletePage(next_page_id);
     }
   }

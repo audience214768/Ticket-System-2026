@@ -1,51 +1,16 @@
+#include "common/config.h"
 #include "index/b_plus_tree.h"
 #include "disk/disk_manager.h"
 #include "buffer/buffer_pool_manager.h"
+#include "page/b_plus_tree_leaf_page.h"
+#include "page/b_plus_tree_page.h"
 #include "page/page_guard.h"
+#include "type/type.hpp"
 
 using std::string;
 using std::cin;
 using std::cout;
 using std::endl;
-
-template <size_t len>
-struct FixedString {
-  char key[len]{};
-  auto ToString() const -> string {
-    return string(key);
-  }
-};
-
-template<size_t len>
-struct ComposedKey {
-  FixedString<len> key;
-  int rid;
-  bool is_min = false;
-  auto GetKey() const -> string {
-    return key.ToString();
-  }
-};
-
-class Compare {
-  public:
-    auto operator()(const ComposedKey<65> &a, const ComposedKey<65> &b) const -> int {
-      if (a.GetKey() != b.GetKey()) {
-        if (a.GetKey() < b.GetKey()) {
-          return -1;
-        } else {
-          return 1;
-        }
-      } else {
-        if (a.rid < b.rid || a.is_min) {
-          return -1;
-        } else if (a.rid > b.rid || b.is_min) {
-          return 1;
-        } else {
-          return 0;
-        }
-      }
-    }
-};
 
 int main() {
   vector<shared_ptr<DiskManager>> disk_manager;
@@ -55,6 +20,11 @@ int main() {
   int n;
   cin >> n;
   for(int i = 0; i < n; i++) {
+    //std::cerr << i << std::endl;
+    // {
+    // ReadPageGuard guard = bpm->ReadPage(3);
+    // guard.As<BPlusTreeInternalPage<ComposedKey<65>, page_id_t, Compare>>()->ToString();
+    // }
     string cmd;
     cin >> cmd;
     if (cmd == "insert") {

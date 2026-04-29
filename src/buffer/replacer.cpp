@@ -9,6 +9,13 @@ void Replacer::Access(frame_id_t frame_id) {
 
 auto Replacer::Evict() ->frame_id_t {
   frame_id_t evict_id = INVALID_FRAME_ID;
+  // int count = 0;
+  // for (int i = 0; i < frame_num_; i++) {
+  //   if (node_store_[i].is_evictable_ == false) {
+  //     count++;
+  //   }
+  // }
+  // std::cerr << count << std::endl;
   for (int i = 0; i < frame_num_; i++) {
     if(node_store_[i].history_.empty() || node_store_[i].is_evictable_ == false) {
       continue;
