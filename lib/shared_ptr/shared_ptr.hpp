@@ -9,7 +9,11 @@ template <typename T>
 class shared_ptr {
  public:
   shared_ptr() : ptr(nullptr), refCount(nullptr) {}
-  shared_ptr(T *p) : ptr(p), refCount(new size_t(1)) {}
+  shared_ptr(T *p) : ptr(p) {
+    if (p) {
+      refCount = new size_t (1);
+    }
+  }
   shared_ptr(const shared_ptr &other): ptr(other.ptr), refCount(other.refCount) {
     (*refCount)++;
   }
@@ -33,6 +37,16 @@ class shared_ptr {
     }
     return *this;
   }
+  void release() {
+    if (ptr) {
+      if (--(*refCount) == 0) {
+        delete ptr;
+        delete refCount;
+      }
+    }
+    ptr = nullptr;
+    refCount = nullptr;
+  }
 
   ~shared_ptr() { release(); }
 
@@ -45,15 +59,6 @@ class shared_ptr {
  private: 
   T *ptr;
   size_t *refCount;
-  void release() {
-    if (ptr == nullptr) {
-      return;
-    }
-    if (--(*refCount) == 0) {
-      delete ptr;
-      delete refCount;
-    }
-  }
   void swap(shared_ptr &other) {
     std::swap(ptr, other.ptr);
     std::swap(refCount, other.refCount);

@@ -63,8 +63,8 @@ void ReadPageGuard::Drop() {
   }
   is_valid_ = false;
   //page_id_ = INVALID_PAGE_ID;
-  frame_ = nullptr;
-  replacer_ = nullptr;
+  frame_.release();
+  replacer_.release();
   /*
   bpm_latch_ = nullptr;
   disk_scheduler_ = nullptr;*/
@@ -137,8 +137,8 @@ void WritePageGuard::Drop() {
   }
   is_valid_ = false;
   //page_id_ = INVALID_PAGE_ID;
-  frame_ = nullptr;
-  replacer_ = nullptr;
+  frame_.release();
+  replacer_.release();
   /*
   bpm_latch_ = nullptr;
   disk_scheduler_ = nullptr;*/
