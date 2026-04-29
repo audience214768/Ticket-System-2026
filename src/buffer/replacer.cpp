@@ -40,7 +40,6 @@ void ClockReplacer::Access(frame_id_t frame_id) {
 void ClockReplacer::SetEvictable(frame_id_t frame_id, bool enable) {
   evictable_[frame_id] = enable;
 }
-// 3. 淘汰帧：跳过不可淘汰的页，保持Clock原生速度
 auto ClockReplacer::Evict() -> frame_id_t {
   while (true) {
     if (!evictable_[hand_]) {
