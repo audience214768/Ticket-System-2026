@@ -28,7 +28,7 @@ struct ComposedKey {
 
 class Compare {
   public:
-    auto operator()(const ComposedKey<64> &a, const ComposedKey<64> &b) const -> int {
+    auto operator()(const ComposedKey<65> &a, const ComposedKey<65> &b) const -> int {
       if (a.GetKey() != b.GetKey()) {
         if (a.GetKey() < b.GetKey()) {
           return -1;
@@ -51,30 +51,18 @@ int main() {
   vector<shared_ptr<DiskManager>> disk_manager;
   disk_manager.push_back(make_shared<DiskManager>(0, "data"));
   shared_ptr<BufferPoolManager> bpm = make_shared<BufferPoolManager>(3000, disk_manager);
-  BPlusTree<ComposedKey<64>, int, Compare> tree(0, 0, bpm);
+  BPlusTree<ComposedKey<65>, int, Compare> tree(0, 0, bpm);
   int n;
   cin >> n;
   for(int i = 0; i < n; i++) {
-    //std::cerr << i << std::endl;
-    // {
-    //   std::cerr << i << std::endl;
-    //   ReadPageGuard guard = bpm->ReadPage(54);
-    //   auto header_page = guard.As<BPlusTreeInternalPage<ComposedKey<64>, page_id_t, Compare>>();
-    //   std::cerr << "54 : ";
-    //   header_page->ToString();
-    //   guard = bpm->ReadPage(67);
-    //   auto leaf_page = guard.As<BPlusTreeLeafPage<ComposedKey<64>, int, Compare>>();
-    //   std::cerr << "67 : ";leaf_page->ToString();
-    //   //std::cerr << header_page->magic_num_ << " " << header_page->root_page_id_ << std::endl;
-    // }
     string cmd;
     cin >> cmd;
     if (cmd == "insert") {
-        ComposedKey<64> key;
+        ComposedKey<65> key;
         cin >> key.key.key >> key.rid;
         tree.Insert(key, key.rid);
     } else if (cmd == "find") {
-        ComposedKey<64> key;
+        ComposedKey<65> key;
         key.is_min = true;
         cin >> key.key.key;
         vector<int> result;
@@ -88,7 +76,7 @@ int main() {
           cout << "null" << endl;
         }
     } else if (cmd == "delete") {
-        ComposedKey<64> key;
+        ComposedKey<65> key;
         cin >> key.key.key >> key.rid;
         tree.Remove(key);
     }
