@@ -184,9 +184,9 @@ void BufferPoolManager::Evict(frame_id_t frame_id, unique_lock<mutex> &lock) {
       .callback = std::move(promise),
     });
     future.get();
-    lock.lock();
     //disk_manager_[frame_info_[frame_id]->page_id_ >> FILE_BIT]->WritePage(frame_info_[frame_id]->page_id_, frame_info_[frame_id]->GetData());
   }
+  lock.lock();
 }
 
 void BufferPoolManager::Access(frame_id_t frame_id) {
