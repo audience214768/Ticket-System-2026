@@ -2,11 +2,14 @@
 
 #include "common/config.h"
 #include <fstream>
+#include <mutex>
 #include <string>
+#include <mutex>
 
 using std::string;
 using std::fstream;
 using std::ios;
+using std::mutex;
 
 enum OpType {READY, WRITE, FINISH};
 
@@ -31,6 +34,8 @@ class DiskManager {
 
   page_id_t next_free_page_ = INVALID_PAGE_ID;
   page_id_t next_page_id_ = 1;
+
+  mutex io_mutex_;
 
   int info_len = 2;
   #define OFFSET(page_id) ((page_id) * DISK_PAGE_SIZE + info_len *sizeof(page_id_t))

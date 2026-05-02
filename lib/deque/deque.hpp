@@ -300,6 +300,12 @@ public:
     }
     return ptr_store_[BlockIndex(0)][InnerIndex(0)];
   }
+  T & front() {
+    if(empty()) {
+      throw container_is_empty();
+    }
+    return ptr_store_[BlockIndex(0)][InnerIndex(0)];
+  }
 	/**
 	 * access the last element
 	 * throw container_is_empty when the container is empty.

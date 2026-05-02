@@ -2,16 +2,20 @@
 #include "buffer/replacer.h"
 #include "common/config.h"
 #include "disk/disk_manager.h"
+#include "disk/disk_scheduler.h"
 #include "page/b_plus_tree_leaf_page.h"
-#include "page/b_plus_tree_page.h"
 #include "page/page_guard.h"
+#include <cstddef>
+#include <mutex>
 
+using std::unique_lock;
 using sjtu::make_shared;
 
-BufferPoolManager::BufferPoolManager(size_t frame_num, vector<shared_ptr<DiskManager>> &disk_manager)
+BufferPoolManager::BufferPoolManager(size_t frame_num, const vector<shared_ptr<DiskManager>> &disk_manager)
   : frame_num_(frame_num),
     replacer_(make_shared<Replacer>(frame_num)),
-    disk_manager_(disk_manager) {
+    disk_scheduler_(make_shared<DiskScheduler>(1, disk_manager)),
+    bpm_mutex_(make_shared<mutex>()) {
   frame_info_.reserve(frame_num);
   free_list_.reserve(frame_num);
   for (int i = 0; i < frame_num; i++) {
@@ -20,12 +24,16 @@ BufferPoolManager::BufferPoolManager(size_t frame_num, vector<shared_ptr<DiskMan
   }
 }
 
-auto BufferPoolManager::NewPage(size_t file_id) -> page_id_t { 
-  auto page_id = disk_manager_[file_id]->NewPage();
-  // if (page_id == 3) {
-  //   std::cerr << "new page " << page_id << std::endl;
-  // }
-  return page_id; 
+auto BufferPoolManager::NewPage(size_t file_id) -> page_id_t {
+  promise<page_id_t> promise;
+  auto future = promise.get_future();
+  disk_scheduler_->Scheduler(DiskRequest{
+    .type = RequestType::kNew,
+    .data = nullptr,
+    .page_id = 0,
+    .callback = std::move(promise),
+  });
+  return future.get();
 }
 
 inline auto hash(page_id_t page_id) -> int {
@@ -49,7 +57,7 @@ auto BufferPoolManager::FindFrame(page_id_t page_id) -> frame_id_t {
   return INVALID_FRAME_ID;
 }
 
-void BufferPoolManager::UseFrame(frame_id_t frame_id, page_id_t page_id, bool is_write) {
+void BufferPoolManager::UseFrame(frame_id_t frame_id, page_id_t page_id, bool is_write, unique_lock<mutex> &lock) {
   int idx = hash(page_id);
   int tmp = idx;
   while (hash_table[idx].page_id != INVALID_PAGE_ID) {
@@ -60,58 +68,87 @@ void BufferPoolManager::UseFrame(frame_id_t frame_id, page_id_t page_id, bool is
   hash_table[idx].used = true;
   frame_info_[frame_id]->page_id_ = page_id;
   frame_info_[frame_id]->is_dirty_ = is_write;
-  disk_manager_[page_id >> FILE_BIT]->ReadPage(page_id, frame_info_[frame_id]->GetDataMut());
   Access(frame_id);
+  lock.unlock();
+  {
+    promise<page_id_t> promise;
+    auto future = promise.get_future();
+    disk_scheduler_->Scheduler(DiskRequest{
+      .type = RequestType::kRead,
+      .data = frame_info_[frame_id]->GetDataMut(),
+      .page_id = page_id,
+      .callback = std::move(promise),
+    });
+    future.get();
+  }
+  lock.lock();
 }
 
 auto BufferPoolManager::WritePage(page_id_t page_id) -> WritePageGuard {
   //std::cerr << "write page " << page_id << std::endl;
+  unique_lock<mutex> lock(*bpm_mutex_);
   frame_id_t frame_id = FindFrame(page_id);
   if(frame_id == INVALID_FRAME_ID) {
     if(free_list_.empty()) {
       auto evict_frame_id = replacer_->Evict();
-      Evict(evict_frame_id, page_id);
-      frame_info_[evict_frame_id]->is_dirty_ = true;
-      return WritePageGuard(frame_info_[evict_frame_id], replacer_);
+      Evict(evict_frame_id, lock);
+      UseFrame(evict_frame_id, page_id, true, lock);
+      lock.unlock();
+      return WritePageGuard(frame_info_[evict_frame_id], replacer_, bpm_mutex_);
     }
     auto free_frame = free_list_.back();
     free_list_.pop_back();
-    UseFrame(free_frame, page_id, true);
-    return WritePageGuard(frame_info_[free_frame], replacer_);
+    UseFrame(free_frame, page_id, true, lock);
+    lock.unlock();
+    return WritePageGuard(frame_info_[free_frame], replacer_, bpm_mutex_);
   }
   //std::cerr << "cache hit" << std::endl;
   frame_info_[frame_id]->is_dirty_ = true;
   Access(frame_id);
-  return WritePageGuard(frame_info_[frame_id], replacer_);
+  lock.unlock();
+  return WritePageGuard(frame_info_[frame_id], replacer_, bpm_mutex_);
 }
 
 auto BufferPoolManager::ReadPage(page_id_t page_id) -> ReadPageGuard {
+  unique_lock<mutex> lock(*bpm_mutex_);
   frame_id_t frame_id = FindFrame(page_id);
   if(frame_id == INVALID_FRAME_ID) {
     if(free_list_.empty()) {
       auto evict_frame_id = replacer_->Evict();
-      Evict(evict_frame_id, page_id);
-      return ReadPageGuard(frame_info_[evict_frame_id], replacer_);
+      Evict(evict_frame_id, lock);
+      UseFrame(evict_frame_id, page_id, false, lock);
+      lock.unlock();
+      return ReadPageGuard(frame_info_[evict_frame_id], replacer_, bpm_mutex_);
     }
     auto free_frame = free_list_.back();
     free_list_.pop_back();
-    UseFrame(free_frame, page_id, false);
-    return ReadPageGuard(frame_info_[free_frame], replacer_);
+    UseFrame(free_frame, page_id, false, lock);
+    lock.unlock();
+    return ReadPageGuard(frame_info_[free_frame], replacer_, bpm_mutex_);
   }
   //std::cerr << "cache hit" << std::endl;
   Access(frame_id);
-  return ReadPageGuard(frame_info_[frame_id], replacer_);
+  lock.unlock();
+  return ReadPageGuard(frame_info_[frame_id], replacer_, bpm_mutex_);
 }
 
 void BufferPoolManager::DeletePage(page_id_t page_id) {
-  // if (page_id == 3) {
-  //   std::cerr << "delete " << page_id << std::endl;
-  // }
+  unique_lock<mutex> lock(*bpm_mutex_);
   frame_id_t frame_id = FindFrame(page_id);
   if(frame_id == INVALID_FRAME_ID) {
     return ;
   }
-  disk_manager_[page_id >> FILE_BIT]->DeletePage(page_id);
+  {
+    promise<page_id_t> promise;
+    auto future = promise.get_future();
+    disk_scheduler_->Scheduler(DiskRequest{
+      .type = RequestType::kDelete,
+      .data = nullptr,
+      .page_id = page_id,
+      .callback = std::move(promise),
+    });
+    future.get();
+  }
   frame_info_[frame_id]->Reset();
   free_list_.push_back(frame_id);
   auto idx = hash(page_id);
@@ -125,22 +162,7 @@ void BufferPoolManager::DeletePage(page_id_t page_id) {
   }
 }
 
-void BufferPoolManager::Evict(frame_id_t frame_id, page_id_t page_id) {
-  // if (frame_info_[frame_id]->page_id_ == 3) {
-  //   std::cerr << "evict " << frame_info_[frame_id]->page_id_ << " for " << page_id << std::endl;
-  //   Access(frame_id);
-  //   ReadPageGuard guard(frame_info_[frame_id], replacer_);
-  //   std::cerr << guard.As<BPlusTreePage>()->IsLeafPage() << std::endl;
-  // }
-  // if (page_id == 3) {
-  //   std::cerr << "evict for " << page_id << std::endl;
-  //   // ReadPageGuard guard(frame_info_[frame_id], replacer_);
-  //   // std::cerr << guard.As<BPlusTreePage>()->IsLeafPage() << std::endl;
-  // }
-  //std::cerr << "cache miss" << std::endl;
-  if (frame_info_[frame_id]->is_dirty_) {
-    disk_manager_[frame_info_[frame_id]->page_id_ >> FILE_BIT]->WritePage(frame_info_[frame_id]->page_id_, frame_info_[frame_id]->GetData());
-  }
+void BufferPoolManager::Evict(frame_id_t frame_id, unique_lock<mutex> &lock) {
   auto idx = hash(frame_info_[frame_id]->page_id_);
   while (hash_table[idx].used) {
     if (hash_table[idx].page_id == frame_info_[frame_id]->page_id_) {
@@ -150,7 +172,20 @@ void BufferPoolManager::Evict(frame_id_t frame_id, page_id_t page_id) {
     }
     idx = (idx + 1) & (HASH_SIZE - 1);
   }
-  UseFrame(frame_id, page_id, false);
+  lock.unlock();
+  if (frame_info_[frame_id]->is_dirty_) {
+    promise<page_id_t> promise;
+    auto future = promise.get_future();
+    disk_scheduler_->Scheduler(DiskRequest{
+      .type = RequestType::kWrite,
+      .data = frame_info_[frame_id]->GetDataMut(),
+      .page_id = frame_info_[frame_id]->page_id_,
+      .callback = std::move(promise),
+    });
+    future.get();
+    lock.lock();
+    //disk_manager_[frame_info_[frame_id]->page_id_ >> FILE_BIT]->WritePage(frame_info_[frame_id]->page_id_, frame_info_[frame_id]->GetData());
+  }
 }
 
 void BufferPoolManager::Access(frame_id_t frame_id) {
@@ -162,7 +197,16 @@ void BufferPoolManager::Access(frame_id_t frame_id) {
 BufferPoolManager::~BufferPoolManager() {
   for (int i = 0; i < frame_num_; i++) {
     if(frame_info_[i]->page_id_ != INVALID_PAGE_ID && frame_info_[i]->is_dirty_) {
-      disk_manager_[frame_info_[i]->page_id_ >> FILE_BIT]->WritePage(frame_info_[i]->page_id_, frame_info_[i]->GetData());
+      promise<page_id_t> promise;
+      auto future = promise.get_future();
+      disk_scheduler_->Scheduler(DiskRequest{
+        .type = RequestType::kRead,
+        .data = frame_info_[i]->GetDataMut(),
+        .page_id = frame_info_[i]->page_id_,
+        .callback = std::move(promise),
+      });
+      future.get();
+      //disk_manager_[frame_info_[i]->page_id_ >> FILE_BIT]->WritePage(frame_info_[i]->page_id_, frame_info_[i]->GetData());
     }
   }
 }

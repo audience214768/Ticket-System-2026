@@ -2,6 +2,9 @@
 #include "common/config.h"
 #include <cstring>
 #include <iostream>
+#include <mutex>
+
+using std::unique_lock;
 using std::ios;
 
 DiskManager::DiskManager(size_t file_id, const string &db_file_name):fileID_(file_id), db_file_name_(db_file_name) {
@@ -38,6 +41,7 @@ DiskManager::~DiskManager() {
 }
 
 void DiskManager::ReadPage(page_id_t page_id, char *data) {
+  unique_lock<mutex> lock(io_mutex_);
   auto offset = OFFSET(page_id % DISK_FILE_SIZE);
   if (offset >= GetFileSize()) {
     memset(data, 0, DISK_PAGE_SIZE);
@@ -49,9 +53,7 @@ void DiskManager::ReadPage(page_id_t page_id, char *data) {
 }
 
 void DiskManager::WritePage(page_id_t page_id, const char *data) {
-  // if (page_id == 1452) {
-  //   std::cerr << "write " << page_id << std::endl;
-  // }
+  unique_lock<mutex> lock(io_mutex_);
   db_file_io_.clear();
   db_file_io_.seekp(OFFSET(page_id % DISK_FILE_SIZE));
   db_file_io_.write(data, DISK_PAGE_SIZE);
@@ -59,6 +61,7 @@ void DiskManager::WritePage(page_id_t page_id, const char *data) {
 }
 
 auto DiskManager::NewPage() -> page_id_t{
+  unique_lock<mutex> lock(io_mutex_);
   if(next_free_page_ != INVALID_PAGE_ID) {
     page_id_t last_free_page = next_free_page_;
     db_file_io_.clear();
@@ -72,6 +75,7 @@ auto DiskManager::NewPage() -> page_id_t{
 
 void DiskManager::DeletePage(page_id_t page_id) {
   //std::cerr << "delete " << page_id << " " << next_free_page_ << std::endl;
+  unique_lock<mutex> lock(io_mutex_);
   db_file_io_.clear();
   db_file_io_.seekp(OFFSET(page_id % DISK_FILE_SIZE));
   db_file_io_.write(reinterpret_cast<const char *>(&next_free_page_), sizeof(page_id_t));

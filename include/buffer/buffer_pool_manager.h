@@ -3,9 +3,18 @@
 #include "replacer.h"
 #include "common/config.h"
 #include "disk/disk_manager.h"
+#include "disk/disk_scheduler.h"
 #include "page/page_guard.h"
 #include "vector/vector.hpp"
 #include "shared_ptr/shared_ptr.hpp"
+
+#include <shared_mutex>
+#include <mutex>
+
+using std::mutex;
+using std::unique_lock;
+using std::atomic;
+using std::shared_mutex;
 
 using sjtu::vector;
 using sjtu::shared_ptr;
@@ -21,8 +30,10 @@ class FrameInfo {
   bool is_dirty_ = false;
   page_id_t page_id_; 
   frame_id_t frame_id_;
-  size_t pin_count_ = 0;
+  atomic<size_t> pin_count_ = 0;
   vector<char> data_;
+  shared_mutex frame_mutex_;
+
   auto GetData() -> const char * {
     return data_.data(); 
   }
@@ -48,15 +59,19 @@ class BufferPoolManager {
   vector<shared_ptr<FrameInfo>> frame_info_;
   shared_ptr<Replacer> replacer_;
   vector<frame_id_t> free_list_;
+  shared_ptr<DiskScheduler> disk_scheduler_;
   HashEntry hash_table[HASH_SIZE];
   size_t frame_num_;
-  vector<shared_ptr<DiskManager>> disk_manager_;
-  void UseFrame(frame_id_t frame_id, page_id_t page_id, bool is_write);
-  void Evict(frame_id_t frame_id, page_id_t page_id);
+
+  shared_ptr<mutex> bpm_mutex_;
+
+  //vector<shared_ptr<DiskManager>> disk_manager_;
+  void UseFrame(frame_id_t frame_id, page_id_t page_id, bool is_write, unique_lock<mutex> &lock);
+  void Evict(frame_id_t frame_id, unique_lock<mutex> &lock);
   void Access(frame_id_t frame_id);
   auto FindFrame(page_id_t page_id) -> frame_id_t;
  public:
-  BufferPoolManager(size_t frame_num, vector<shared_ptr<DiskManager>> &disk_manager);
+  BufferPoolManager(size_t frame_num, const vector<shared_ptr<DiskManager>> &disk_manager);
   ~BufferPoolManager();
   auto WritePage(page_id_t page_id) -> WritePageGuard;
   auto ReadPage(page_id_t page_id) -> ReadPageGuard;

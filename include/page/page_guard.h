@@ -4,9 +4,16 @@
 #include "common/config.h"
 #include "buffer/replacer.h"
 #include "shared_ptr/shared_ptr.hpp"
+#include <mutex>
+#include <shared_mutex>
 
 using sjtu::shared_ptr;
 using sjtu::make_shared;
+
+using std::unique_lock;
+using std::shared_lock;
+using std::mutex;
+using std::shared_mutex;
 
 class BufferPoolManager;
 class FrameInfo;
@@ -26,18 +33,16 @@ class ReadPageGuard {
   auto As() const -> const T * {
     return reinterpret_cast<const T *>(GetData());
   }
-  //auto IsDirty() const -> bool;
-  //void Flush();
   void Drop();
   ~ReadPageGuard();
 
  private:
-  explicit ReadPageGuard(shared_ptr<FrameInfo> frame, shared_ptr<Replacer> replacer/*, std::shared_ptr<std::mutex> bpm_latch, std::shared_ptr<DiskScheduler> disk_scheduler*/);
+  explicit ReadPageGuard(shared_ptr<FrameInfo> frame, shared_ptr<Replacer> replacer, shared_ptr<mutex> bpm_latch);
   shared_ptr<FrameInfo> frame_;
   shared_ptr<Replacer> replacer_;
-  //std::shared_ptr<std::mutex> bpm_latch_;
+  shared_ptr<mutex> bpm_latch_;
   bool is_valid_ = false;
-  //std::shared_lock<std::shared_mutex> lock_;
+  shared_lock<shared_mutex> lock_;
 };
 
 class WritePageGuard {
@@ -61,18 +66,16 @@ class WritePageGuard {
   auto AsMut() -> T * {
     return reinterpret_cast<T *>(GetDataMut());
   }
-  //auto IsDirty() const -> bool;
-  //void Flush();
   void Drop();
   ~WritePageGuard();
 
  private:
   /** @brief Only the buffer pool manager is allowed to construct a valid `WritePageGuard.` */
-  explicit WritePageGuard(shared_ptr<FrameInfo> frame ,shared_ptr<Replacer> replacer/*, std::shared_ptr<std::mutex> bpm_latch, std::shared_ptr<DiskScheduler> disk_scheduler*/);
+  explicit WritePageGuard(shared_ptr<FrameInfo> frame ,shared_ptr<Replacer> replacer, shared_ptr<mutex> bpm_latch);
   shared_ptr<FrameInfo> frame_;
   shared_ptr<Replacer> replacer_;
-  //std::shared_ptr<std::mutex> bpm_latch_;
+  shared_ptr<mutex> bpm_latch_;
   bool is_valid_ = false;
-  //std::unique_lock<std::shared_mutex> lock_;
+  unique_lock<shared_mutex> lock_;
 };
 

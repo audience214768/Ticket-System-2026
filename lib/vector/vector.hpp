@@ -545,6 +545,14 @@ public:
     new (data_ + size_) T(value);
     size_++;
   }
+  template<typename ...Args>
+  void emplace_back(Args&&... args) {
+    if(size_ == capacity_) {
+      reserve(2 * capacity_ + 1);
+    }
+    new (data_ + size_) T(std::forward<Args>(args)...);
+    size_++;
+  }
 	/**
 	 * remove the last element from the end.
 	 * throw container_is_empty if size() == 0
