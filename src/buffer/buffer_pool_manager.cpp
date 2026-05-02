@@ -195,12 +195,13 @@ void BufferPoolManager::Access(frame_id_t frame_id) {
 }
 
 BufferPoolManager::~BufferPoolManager() {
+  //std::cerr << "begin to flush" << std::endl;
   for (int i = 0; i < frame_num_; i++) {
     if(frame_info_[i]->page_id_ != INVALID_PAGE_ID && frame_info_[i]->is_dirty_) {
       promise<page_id_t> promise;
       auto future = promise.get_future();
       disk_scheduler_->Scheduler(DiskRequest{
-        .type = RequestType::kRead,
+        .type = RequestType::kWrite,
         .data = frame_info_[i]->GetDataMut(),
         .page_id = frame_info_[i]->page_id_,
         .callback = std::move(promise),
