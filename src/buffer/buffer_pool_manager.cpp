@@ -30,7 +30,7 @@ auto BufferPoolManager::NewPage(size_t file_id) -> page_id_t {
   disk_scheduler_->Scheduler(DiskRequest{
     .type = RequestType::kNew,
     .data = nullptr,
-    .page_id = 0,
+    .page_id = file_id << FILE_BIT,
     .callback = std::move(promise),
   });
   return future.get();
@@ -138,17 +138,6 @@ void BufferPoolManager::DeletePage(page_id_t page_id) {
   if(frame_id == INVALID_FRAME_ID) {
     return ;
   }
-  {
-    promise<page_id_t> promise;
-    auto future = promise.get_future();
-    disk_scheduler_->Scheduler(DiskRequest{
-      .type = RequestType::kDelete,
-      .data = nullptr,
-      .page_id = page_id,
-      .callback = std::move(promise),
-    });
-    future.get();
-  }
   frame_info_[frame_id]->Reset();
   free_list_.push_back(frame_id);
   auto idx = hash(page_id);
@@ -159,6 +148,18 @@ void BufferPoolManager::DeletePage(page_id_t page_id) {
       break;
     }
     idx = (idx + 1) & (HASH_SIZE - 1);
+  }
+  lock.unlock();
+  {
+    promise<page_id_t> promise;
+    auto future = promise.get_future();
+    disk_scheduler_->Scheduler(DiskRequest{
+      .type = RequestType::kDelete,
+      .data = nullptr,
+      .page_id = page_id,
+      .callback = std::move(promise),
+    });
+    future.get();
   }
 }
 

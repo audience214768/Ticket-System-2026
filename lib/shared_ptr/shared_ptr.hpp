@@ -1,17 +1,27 @@
 #pragma once
 
 #include <iostream>
+#include <atomic>
+
+using std::atomic;
 
 
 namespace sjtu {
 
 template <typename T> 
 class shared_ptr {
+ private: 
+  T *ptr;
+  atomic<size_t> *refCount;
+  void swap(shared_ptr &other) {
+    std::swap(ptr, other.ptr);
+    std::swap(refCount, other.refCount);
+  }
  public:
   shared_ptr() : ptr(nullptr), refCount(nullptr) {}
   shared_ptr(T *p) : ptr(p) {
     if (p) {
-      refCount = new size_t (1);
+      refCount = new atomic<size_t> (1);
     }
   }
   shared_ptr(const shared_ptr &other): ptr(other.ptr), refCount(other.refCount) {
@@ -55,14 +65,6 @@ class shared_ptr {
   T &operator*() const { return *ptr; }
 
   T *operator->() const { return ptr; }
-
- private: 
-  T *ptr;
-  size_t *refCount;
-  void swap(shared_ptr &other) {
-    std::swap(ptr, other.ptr);
-    std::swap(refCount, other.refCount);
-  }
 };
 
 template<typename T, typename... Args>

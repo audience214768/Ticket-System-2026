@@ -38,10 +38,11 @@ void DiskScheduler::StartWorkerThread() {
   while (true) {
     DiskRequest disk_request;
     {
-      unique_lock<std::mutex> lock(mutex_);
+      unique_lock<mutex> lock(mutex_);
       cv_.wait(lock, [this] { return stop_ || !channel_.empty(); });
-      if (stop_ && channel_.empty())
+      if (stop_ && channel_.empty()) {
         return;
+      }
       disk_request = std::move(channel_.front());
       channel_.pop_front();
     }
