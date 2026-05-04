@@ -23,13 +23,13 @@ class BPlusTreeInternalPage : public BPlusTreePage {
 
   void Init(int max_size = INTERNAL_PAGE_SLOT_CNT);
 
-  auto KeyAt(int index) const -> KeyType;
+  auto KeyAt(int index) const -> const KeyType &;
 
   void SetKeyAt(int index, const KeyType &key);
 
   auto ValueIndex(const ValueType &value) const -> int;
 
-  auto ValueAt(int index) const -> ValueType;
+  auto ValueAt(int index) const -> const ValueType &;
   void SetValueAt(int index, const ValueType &value);
   auto Search(const KeyType &key, const Compare &compare) const -> int;
   void Insert(const KeyType &key, page_id_t page_id, const Compare &compare);
@@ -42,17 +42,12 @@ class BPlusTreeInternalPage : public BPlusTreePage {
   void ToString() const {
     cerr << "(";
     bool first = true;
-
+    cerr << ValueAt(0);
     // First key of internal page is always invalid
     for (int i = 1; i < GetSize(); i++) {
       KeyType key = KeyAt(i);
-      if (first) {
-        first = false;
-      } else {
-        cerr << ",";
-      }
 
-      cerr << key.GetKey() << " " << key.rid << " " << ValueAt(i);
+      cerr << "," << key.GetKey() << " " << key.rid << " " << ValueAt(i);
     }
     cerr << ")" << endl;
   }
@@ -74,7 +69,7 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::Init(int max_size) {
 
 
 INDEX_TEMPLATE_ARGUMENTS
-auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::KeyAt(int index) const -> KeyType {
+auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::KeyAt(int index) const -> const KeyType &{
   return key_array_[index];
 }
 
@@ -86,7 +81,7 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::SetKeyAt(int index, const KeyType &key) {
 
 
 INDEX_TEMPLATE_ARGUMENTS
-auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::ValueAt(int index) const -> ValueType {
+auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::ValueAt(int index) const -> const ValueType &{
   return page_id_array_[index];
 }
 

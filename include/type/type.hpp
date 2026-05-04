@@ -25,8 +25,9 @@ struct ComposedKey {
 
 class Compare {
   public:
-    auto operator()(const ComposedKey<65> &a, const ComposedKey<65> &b) const -> int {
-      int cmp = memcmp(a.key.key, b.key.key, 65);
+    template<size_t len>
+    auto operator()(const ComposedKey<len> &a, const ComposedKey<len> &b) const -> int {
+      int cmp = memcmp(a.key.key, b.key.key, len);
       if (cmp != 0) {
         return cmp;
       }

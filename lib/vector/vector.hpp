@@ -3,6 +3,7 @@
 
 
 #include "exceptions.hpp"
+#include <iostream>
 
 
 namespace sjtu
@@ -358,6 +359,7 @@ public:
 	 * throw index_out_of_bound if pos is not in [0, size)
 	 */
 	T & at(const size_t &pos) {
+    //std::cerr << pos << " " << size_ << std::endl;
     if(pos >= size_) {
       throw index_out_of_bound();
     }

@@ -42,6 +42,7 @@ void ClockReplacer::SetEvictable(frame_id_t frame_id, bool enable) {
 }
 auto ClockReplacer::Evict() -> frame_id_t {
   while (true) {
+    //std::cerr << "try" << std::endl;
     if (!evictable_[hand_]) {
       hand_ = (hand_ + 1) % ref_.size();
       continue;

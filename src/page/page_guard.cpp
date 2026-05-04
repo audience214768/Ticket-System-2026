@@ -20,6 +20,9 @@ ReadPageGuard::ReadPageGuard(ReadPageGuard &&that) noexcept {
   bpm_latch_ = that.bpm_latch_;
   lock_ = std::move(that.lock_);
   that.is_valid_ = false;
+  that.frame_.release();
+  that.replacer_.release();
+  that.bpm_latch_.release();
 }
 
 auto ReadPageGuard::operator=(ReadPageGuard &&that) noexcept -> ReadPageGuard & {
@@ -33,6 +36,9 @@ auto ReadPageGuard::operator=(ReadPageGuard &&that) noexcept -> ReadPageGuard & 
   bpm_latch_ = that.bpm_latch_;
   lock_ = std::move(that.lock_);
   that.is_valid_ = false;
+  that.frame_.release();
+  that.replacer_.release();
+  that.bpm_latch_.release();
   return *this;
 }
 
@@ -63,7 +69,7 @@ void ReadPageGuard::Drop() {
   }
   frame_.release();
   replacer_.release();
-  bpm_latch_ = nullptr;
+  bpm_latch_.release();
 }
 
 ReadPageGuard::~ReadPageGuard() { Drop(); }
@@ -83,6 +89,9 @@ WritePageGuard::WritePageGuard(WritePageGuard &&that) noexcept {
   bpm_latch_ = that.bpm_latch_;
   lock_ = std::move(that.lock_);
   that.is_valid_ = false;
+  that.frame_.release();
+  that.replacer_.release();
+  that.bpm_latch_.release();
 }
 
 auto WritePageGuard::operator=(WritePageGuard &&that) noexcept -> WritePageGuard & {
@@ -96,6 +105,9 @@ auto WritePageGuard::operator=(WritePageGuard &&that) noexcept -> WritePageGuard
   bpm_latch_ = that.bpm_latch_;
   lock_ = std::move(that.lock_);
   that.is_valid_ = false;
+  that.frame_.release();
+  that.replacer_.release();
+  that.bpm_latch_.release();
   return *this;
 }
 
@@ -129,7 +141,7 @@ void WritePageGuard::Drop() {
   }
   frame_.release();
   replacer_.release();
-  bpm_latch_ = nullptr;
+  bpm_latch_.release();
 }
 
 /** @brief The destructor for `WritePageGuard`. This destructor simply calls `Drop()`. */
