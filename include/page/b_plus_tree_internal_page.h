@@ -11,12 +11,11 @@ using std::cerr;
 using std::endl;
 
 #define B_PLUS_TREE_INTERNAL_PAGE_TYPE BPlusTreeInternalPage<KeyType, ValueType, Compare>
-#define INTERNAL_PAGE_HEADER_SIZE 12
-#define INTERNAL_PAGE_SLOT_CNT \
-  ((DISK_PAGE_SIZE - INTERNAL_PAGE_HEADER_SIZE) / ((sizeof(KeyType) + sizeof(ValueType))))
 
 INDEX_TEMPLATE_ARGUMENTS
 class BPlusTreeInternalPage : public BPlusTreePage {
+ const static size_t INTERNAL_PAGE_HEADER_SIZE = 16;
+ const static size_t INTERNAL_PAGE_SLOT_CNT = ((DISK_PAGE_SIZE - INTERNAL_PAGE_HEADER_SIZE) / ((sizeof(KeyType) + sizeof(ValueType))));
  public:
   BPlusTreeInternalPage() = delete;
   BPlusTreeInternalPage(const BPlusTreeInternalPage &other) = delete;

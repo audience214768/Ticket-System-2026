@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.28)
 project("ticket-manager-system")
 
 set(CMAKE_CXX_STANDARD 20)
+
+enable_testing()
 #set(CMAKE_BUILD_TYPE Debug)
 
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=thread -g -O1")
@@ -22,4 +24,3 @@ target_link_libraries(
   _disk
   _page
 )
-enable_testing()

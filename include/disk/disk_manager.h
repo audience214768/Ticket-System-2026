@@ -28,9 +28,6 @@ class DiskManager {
 
   string db_file_name_;
   fstream db_file_io_;
-  
-  string log_file_name_;
-  fstream log_file_io_;
 
   page_id_t next_free_page_ = INVALID_PAGE_ID;
   page_id_t next_page_id_ = 1;

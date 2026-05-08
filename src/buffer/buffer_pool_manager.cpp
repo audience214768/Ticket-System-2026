@@ -3,8 +3,10 @@
 #include "common/config.h"
 #include "disk/disk_manager.h"
 #include "disk/disk_scheduler.h"
+#include "disk/log_manager.h"
 #include "page/b_plus_tree_leaf_page.h"
 #include "page/page_guard.h"
+#include <cassert>
 #include <cstddef>
 #include <mutex>
 
@@ -15,7 +17,8 @@ BufferPoolManager::BufferPoolManager(size_t frame_num, const vector<shared_ptr<D
   : frame_num_(frame_num),
     replacer_(make_shared<Replacer>(frame_num)),
     disk_scheduler_(make_shared<DiskScheduler>(1, disk_manager)),
-    bpm_mutex_(make_shared<mutex>()) {
+    bpm_mutex_(make_shared<mutex>()),
+    log_manager_(make_shared<LogManager>(disk_manager)) {
   frame_info_.reserve(frame_num);
   free_list_.reserve(frame_num);
   for (int i = 0; i < frame_num; i++) {
@@ -34,6 +37,7 @@ auto BufferPoolManager::NewPage(size_t file_id) -> page_id_t {
     .callback = std::move(promise),
   });
   auto new_page_id = future.get();
+  unique_lock<mutex> lock(*bpm_mutex_);
   //std::cerr << new_page_id << std::endl;
   return new_page_id;
 }
@@ -74,6 +78,7 @@ void BufferPoolManager::UseFrame(frame_id_t frame_id, page_id_t page_id, bool is
   InsertHash(frame_id, page_id);
   frame_info_[frame_id]->page_id_ = page_id;
   frame_info_[frame_id]->is_dirty_ = is_write;
+  frame_info_[frame_id]->is_loading_ = true;
   Access(frame_id);
   {
     promise<page_id_t> promise;
@@ -207,19 +212,19 @@ auto BufferPoolManager::ReadPage(page_id_t page_id) -> ReadPageGuard {
 void BufferPoolManager::DeletePage(page_id_t page_id) {
   unique_lock<mutex> lock(*bpm_mutex_);
   frame_id_t frame_id = FindFrame(page_id);
-  if(frame_id == INVALID_FRAME_ID) {
-    return ;
-  }
-  frame_info_[frame_id]->Reset();
-  free_list_.push_back(frame_id);
-  auto idx = hash(page_id);
-  while (hash_table[idx].used) {
-    if (hash_table[idx].page_id == page_id) {
-      hash_table[idx].page_id = INVALID_PAGE_ID;
-      hash_table[idx].frame_id = INVALID_FRAME_ID;
-      break;
+  if(frame_id != INVALID_FRAME_ID) {
+    assert(frame_info_[frame_id]->pin_count_ == 0);
+    frame_info_[frame_id]->Reset();
+    free_list_.push_back(frame_id);
+    auto idx = hash(page_id);
+    while (hash_table[idx].used) {
+      if (hash_table[idx].page_id == page_id) {
+        hash_table[idx].page_id = INVALID_PAGE_ID;
+        hash_table[idx].frame_id = INVALID_FRAME_ID;
+        break;
+      }
+      idx = (idx + 1) & (HASH_SIZE - 1);
     }
-    idx = (idx + 1) & (HASH_SIZE - 1);
   }
   {
     promise<page_id_t> promise;
@@ -237,7 +242,6 @@ void BufferPoolManager::DeletePage(page_id_t page_id) {
 }
 
 BufferPoolManager::~BufferPoolManager() {
-  //std::cerr << "begin to flush" << std::endl;
   for (int i = 0; i < frame_num_; i++) {
     if(frame_info_[i]->page_id_ != INVALID_PAGE_ID && frame_info_[i]->is_dirty_) {
       promise<page_id_t> promise;

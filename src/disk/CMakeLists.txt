@@ -3,4 +3,5 @@ add_library(
   STATIC 
   disk_manager.cpp
   disk_scheduler.cpp
+  log_manager.cpp
 )

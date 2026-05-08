@@ -9,7 +9,7 @@ DiskScheduler::DiskScheduler(
     size_t thread_num, const vector<shared_ptr<DiskManager>> &disk_manager)
     : disk_manager_(disk_manager), stop_(false) {
   for (int i = 0; i < thread_num; i++) {
-    workers_.emplace_back([&] { StartWorkerThread(); });
+    workers_.emplace_back([&] { StartFlushPage(); });
   }
 }
 
@@ -18,7 +18,7 @@ DiskScheduler::~DiskScheduler() {
     unique_lock<mutex> lock(mutex_);
     stop_ = true;
   }
-  cv_.notify_all();
+  cv_consume_.notify_all();
   for (auto &worker : workers_) {
     if (worker.joinable()) {
       worker.join();
@@ -29,22 +29,24 @@ DiskScheduler::~DiskScheduler() {
 void DiskScheduler::Scheduler(DiskRequest request) {
   {
     unique_lock<mutex> lock(mutex_);
+    cv_produce_.wait(lock, [this] { return channel_.size() < MAX_REQUEST_NUM; });
     channel_.emplace_back(std::move(request));
   }
-  cv_.notify_all();
+  cv_consume_.notify_all();
 }
 
-void DiskScheduler::StartWorkerThread() {
+void DiskScheduler::StartFlushPage() {
   while (true) {
     DiskRequest disk_request;
     {
       unique_lock<mutex> lock(mutex_);
-      cv_.wait(lock, [this] { return stop_ || !channel_.empty(); });
+      cv_consume_.wait(lock, [this] { return stop_ || !channel_.empty(); });
       if (stop_ && channel_.empty()) {
         return;
       }
       disk_request = std::move(channel_.front());
       channel_.pop_front();
+      cv_produce_.notify_all();
     }
     switch (disk_request.type) {
       case RequestType::kDelete: {

@@ -22,10 +22,14 @@ class BPlusTreePage {
   void SetMaxSize(int max_size);
   auto GetMinSize() const -> int;
 
+  auto GetLSN() const -> size_t;
+  void SetLSN(size_t lsn);
+
  private:
   IndexPageType page_type_;
   int size_;
   int max_size_;
+  size_t lsn_;
 };
 
 class BPlusTreeHeaderPage {

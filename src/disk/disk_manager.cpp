@@ -19,14 +19,6 @@ DiskManager::DiskManager(size_t file_id, const string &db_file_name):fileID_(fil
     db_file_io_.seekg(sizeof(page_id_t));
     db_file_io_.read(reinterpret_cast<char *>(&next_page_id_), sizeof(page_id_t));
   }
-
-  log_file_name_ = db_file_name_ + ".log"; 
-  log_file_io_.open(log_file_name_, ios::in | ios::out | ios::binary | ios::app);
-  if(!log_file_io_.is_open()) {
-    log_file_io_.open(log_file_name_, ios::out | ios::binary);
-    log_file_io_.close();
-    log_file_io_.open(log_file_name_, ios::in | ios::out | ios::binary | ios::app);
-  }
 }
 
 DiskManager::~DiskManager() {
@@ -37,7 +29,6 @@ DiskManager::~DiskManager() {
   db_file_io_.write(reinterpret_cast<const char *>(&next_page_id_), sizeof(page_id_t));
   db_file_io_.flush();
   db_file_io_.close();
-  log_file_io_.close();
 }
 
 void DiskManager::ReadPage(page_id_t page_id, char *data) {
@@ -81,10 +72,6 @@ void DiskManager::DeletePage(page_id_t page_id) {
   db_file_io_.write(reinterpret_cast<const char *>(&next_free_page_), sizeof(page_id_t));
   db_file_io_.flush();
   next_free_page_ = page_id;
-}
-
-void DiskManager::WriteLog(const char *log, int size) {
-  log_file_io_.write(log, size);
 }
 
 auto DiskManager::GetFileSize() -> size_t {

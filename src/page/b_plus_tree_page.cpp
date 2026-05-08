@@ -1,4 +1,6 @@
 #include "page/b_plus_tree_page.h"
+#include "common/config.h"
+#include <cstddef>
 
 auto BPlusTreePage::IsLeafPage() const -> bool { 
   return page_type_ == IndexPageType::LEAF_PAGE;
@@ -23,4 +25,12 @@ void BPlusTreePage::SetMaxSize(int size) {
 
 auto BPlusTreePage::GetMinSize() const -> int {
   return max_size_ / 2;
+}
+
+auto BPlusTreePage::GetLSN() const -> page_id_t {
+  return lsn_;
+}
+
+void BPlusTreePage::SetLSN(size_t lsn) {
+  lsn_ = lsn;
 }

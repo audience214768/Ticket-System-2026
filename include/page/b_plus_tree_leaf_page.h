@@ -9,13 +9,11 @@ using sjtu::vector;
 using std::string;
 
 #define B_PLUS_TREE_LEAF_PAGE_TYPE BPlusTreeLeafPage<KeyType, ValueType, Compare>
-#define LEAF_PAGE_HEADER_SIZE 16
-#define LEAF_PAGE_SLOT_CNT                                                                               \
-  ((DISK_PAGE_SIZE - LEAF_PAGE_HEADER_SIZE - sizeof(size_t)) / \
-   (sizeof(KeyType) + sizeof(ValueType)))
 
-INDEX_TEMPLATE_ARGUMENTS
+template <typename KeyType, typename ValueType, typename Compare>
 class BPlusTreeLeafPage : public BPlusTreePage {
+ static const size_t LEAF_PAGE_HEADER_SIZE = 20;
+ static const size_t LEAF_PAGE_SLOT_CNT = ((DISK_PAGE_SIZE - LEAF_PAGE_HEADER_SIZE - sizeof(size_t)) / (sizeof(KeyType) + sizeof(ValueType)));
  public:
   BPlusTreeLeafPage() = delete;
   BPlusTreeLeafPage(const BPlusTreeLeafPage &other) = delete;
@@ -64,7 +62,6 @@ void B_PLUS_TREE_LEAF_PAGE_TYPE::Init(int max_size) {
   }
   SetMaxSize(max_size);
   SetSize(0);
-  //num_tombstones_ = 0;
   SetPageType(IndexPageType::LEAF_PAGE);
   SetNextPageId(INVALID_PAGE_ID);
 }

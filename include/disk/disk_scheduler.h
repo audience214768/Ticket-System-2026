@@ -28,17 +28,19 @@ struct DiskRequest {
 };
 
 class DiskScheduler {
+  const size_t MAX_REQUEST_NUM = 1024;
  private:
   vector<shared_ptr<DiskManager>> disk_manager_;
   deque<DiskRequest> channel_;
   vector<thread> workers_;
   mutex mutex_;
-  condition_variable cv_;
+  condition_variable cv_consume_;
+  condition_variable cv_produce_;
   bool stop_ = true;
  public:
   DiskScheduler(size_t thread_num, const vector<shared_ptr<DiskManager>> &disk_manager);
   ~DiskScheduler();
   void Scheduler(DiskRequest request);
  private:
-  void StartWorkerThread();
+  void StartFlushPage();
 };
