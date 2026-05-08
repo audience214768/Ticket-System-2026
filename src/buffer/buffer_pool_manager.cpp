@@ -181,14 +181,11 @@ auto BufferPoolManager::WritePage(page_id_t page_id) -> WritePageGuard {
 
 auto BufferPoolManager::ReadPage(page_id_t page_id) -> ReadPageGuard {
   unique_lock<mutex> lock(*bpm_mutex_);
-  //std::cerr << "read page " << page_id << std::endl;
   frame_id_t frame_id = FindFrame(page_id);
   if(frame_id == INVALID_FRAME_ID) {
     if(free_list_.empty()) {
       auto evict_frame_id = replacer_->Evict();
       Evict(evict_frame_id, page_id, false, lock);
-      //UseFrame(evict_frame_id, page_id, false, lock);
-      //std::cerr << "1 " << frame_info_[evict_frame_id]->page_id_ << std::endl;
       lock.unlock();
       return ReadPageGuard(frame_info_[evict_frame_id], replacer_, bpm_mutex_);
     }
@@ -199,12 +196,10 @@ auto BufferPoolManager::ReadPage(page_id_t page_id) -> ReadPageGuard {
     lock.unlock();
     return ReadPageGuard(frame_info_[free_frame], replacer_, bpm_mutex_);
   }
-  //std::cerr << "cache hit" << std::endl;
   if (frame_info_[frame_id]->is_loading_) {
     frame_info_[frame_id]->cv_.wait(lock, [&]{ return frame_info_[frame_id]->is_loading_ == false; });
   }
   Access(frame_id);
-  //std::cerr << "3 " << frame_info_[frame_id]->page_id_ << std::endl;
   lock.unlock();
   return ReadPageGuard(frame_info_[frame_id], replacer_, bpm_mutex_);
 }
@@ -243,6 +238,7 @@ void BufferPoolManager::DeletePage(page_id_t page_id) {
 
 BufferPoolManager::~BufferPoolManager() {
   for (int i = 0; i < frame_num_; i++) {
+    assert(frame_info_[i]->pin_count_ == 0);
     if(frame_info_[i]->page_id_ != INVALID_PAGE_ID && frame_info_[i]->is_dirty_) {
       promise<page_id_t> promise;
       auto future = promise.get_future();
@@ -253,7 +249,6 @@ BufferPoolManager::~BufferPoolManager() {
         .callback = std::move(promise),
       });
       future.get();
-      //disk_manager_[frame_info_[i]->page_id_ >> FILE_BIT]->WritePage(frame_info_[i]->page_id_, frame_info_[i]->GetData());
     }
   }
 }

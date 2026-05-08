@@ -209,24 +209,22 @@ void BPLUSTREE_TYPE::GetValue(const KeyType &key, vector<ValueType> *result) {
       result->push_back(leaf_page->ValueAt(i));
     }
     if (i == leaf_page->GetSize() && leaf_page->GetNextPageId() != INVALID_PAGE_ID) {
-      //std::cerr << "next " << leaf_page->GetNextPageId() << std::endl;
       leaf_page_guard = bpm_->ReadPage(leaf_page->GetNextPageId());
       leaf_page = leaf_page_guard.As<LeafPage>();
-      //leaf_page->ToString();
       i = 0;
     } else {
       break;
     }
   }
-  if (result->empty()) {
-    for (auto &guard : ctx.read_set_) {
-        const InternalPage *page = guard.As<InternalPage>();
-        std::cerr << guard.GetPageId() << " " ;
-        page->ToString();
-    }
-    std::cerr << leaf_page_id << " ";
-    leaf_page->ToString();
-  }
+  // if (result->empty()) {
+  //   for (auto &guard : ctx.read_set_) {
+  //       const InternalPage *page = guard.As<InternalPage>();
+  //       std::cerr << guard.GetPageId() << " " ;
+  //       page->ToString();
+  //   }
+  //   std::cerr << leaf_page_id << " ";
+  //   leaf_page->ToString();
+  // }
 }
 
 
