@@ -17,8 +17,8 @@ BufferPoolManager::BufferPoolManager(size_t frame_num, const vector<shared_ptr<D
   : frame_num_(frame_num),
     replacer_(make_shared<Replacer>(frame_num)),
     disk_scheduler_(make_shared<DiskScheduler>(1, disk_manager)),
-    bpm_mutex_(make_shared<mutex>()),
-    log_manager_(make_shared<LogManager>(disk_manager)) {
+    bpm_mutex_(make_shared<mutex>())/*,
+    log_manager_(make_shared<LogManager>(disk_manager))*/ {
   frame_info_.reserve(frame_num);
   free_list_.reserve(frame_num);
   for (int i = 0; i < frame_num; i++) {
