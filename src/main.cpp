@@ -40,7 +40,7 @@ void init() {
     disk_manager.emplace_back(make_shared<DiskManager>(7, "seat_index"));
     disk_manager.emplace_back(make_shared<DiskManager>(8, "waitlist_data"));
     disk_manager.emplace_back(make_shared<DiskManager>(9, "waitlist_index"));
-    bpm = make_shared<BufferPoolManager>(2000, disk_manager);
+    bpm = make_shared<BufferPoolManager>(2200, disk_manager);
     user_manager = make_shared<UserManager>(bpm, 0, 1);
     train_manager = make_shared<TrainManager>(bpm, 2, 3, 4);
     order_manager = make_shared<OrderManager>(bpm, 5, 6);
@@ -59,10 +59,6 @@ auto parser(char *input) -> Command* {
         }
     };
     argc--;
-    // for (int i = 0; i < argc; i++) {
-    //     std::cerr << argv[i] << " ";
-    // }
-    // std::cerr << std::endl;
     if (strcmp(argv[0], "add_user") == 0) {
         return new AddUser(argc, argv, user_manager);
     }
