@@ -1,5 +1,6 @@
 #include "buffer/buffer_pool_manager.h"
 #include "buffer/replacer.h"
+#include "utils/hash.h"
 #include "common/config.h"
 #include "disk/disk_manager.h"
 #include "disk/disk_scheduler.h"
@@ -30,6 +31,7 @@ BufferPoolManager::BufferPoolManager(size_t frame_num, const vector<shared_ptr<D
   while (table_size < frame_num * 4) {
     table_size <<= 1;
   }
+  hash_table_.reserve(table_size);
   for (size_t i = 0; i < table_size; i++) {
     hash_table_.push_back(HashEntry());
   }
@@ -51,7 +53,7 @@ auto BufferPoolManager::NewPage(size_t file_id) -> page_id_t {
 }
 
 void BufferPoolManager::InsertHash(frame_id_t frame_id, page_id_t page_id) {
-  int idx = page_id & hash_table_mask_;
+  int idx = hash_page(page_id, hash_table_mask_);
   while (hash_table_[idx].page_id != INVALID_PAGE_ID) {
     idx = (idx + 1) & hash_table_mask_;
   }
@@ -61,7 +63,7 @@ void BufferPoolManager::InsertHash(frame_id_t frame_id, page_id_t page_id) {
 }
 
 auto BufferPoolManager::FindFrame(page_id_t page_id) -> frame_id_t {
-  int idx = page_id & hash_table_mask_;
+  int idx = hash_page(page_id, hash_table_mask_);
   int tmp = idx;
   while (hash_table_[idx].used) {
     if (hash_table_[idx].page_id == page_id) {
@@ -106,7 +108,7 @@ void BufferPoolManager::UseFrame(frame_id_t frame_id, page_id_t page_id, bool is
 }
 
 void BufferPoolManager::Evict(frame_id_t frame_id, page_id_t page_id, bool is_write, unique_lock<mutex> &lock) {
-  auto idx = frame_info_[frame_id]->page_id_ & hash_table_mask_;
+  auto idx = hash_page(frame_info_[frame_id]->page_id_, hash_table_mask_);
   while (hash_table_[idx].used) {
     if (hash_table_[idx].page_id == frame_info_[frame_id]->page_id_) {
       hash_table_[idx].page_id = INVALID_PAGE_ID;
@@ -233,7 +235,7 @@ void BufferPoolManager::DeletePage(page_id_t page_id) {
     assert(frame_info_[frame_id]->pin_count_ == 0);
     frame_info_[frame_id]->Reset();
     free_list_.push_back(frame_id);
-    auto idx = page_id & hash_table_mask_;
+    auto idx = hash_page(page_id, hash_table_mask_);
     while (hash_table_[idx].used) {
       if (hash_table_[idx].page_id == page_id) {
         hash_table_[idx].page_id = INVALID_PAGE_ID;
