@@ -28,7 +28,7 @@ BufferPoolManager::BufferPoolManager(size_t frame_num, const vector<shared_ptr<D
     free_list_.push_back(i);
   }
   size_t table_size = 1;
-  while (table_size < frame_num * 4) {
+  while (table_size < frame_num * 6) {
     table_size <<= 1;
   }
   hash_table_.reserve(table_size);
