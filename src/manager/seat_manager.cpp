@@ -33,6 +33,8 @@ SeatManager::SeatManager(shared_ptr<BufferPoolManager> bpm,
 }
 
 void SeatManager::Reset() {
+    seat_index_.Reset();
+    waitlist_index_.Reset();
     WritePageGuard guard = bpm_->WritePage(waitlist_data_header_page_id_);
     auto *header = guard.AsMut<WaitlistPageHeader>();
     header->magic_num = 0xDEADBEEF;
@@ -52,23 +54,19 @@ void SeatManager::initSeats(const char *trainID, short saleBegin, short saleEnd,
     char key_buf[SEAT_KEY_LEN];
     //std::cerr << "begin to init" << std::endl;
     for (short i = saleBegin; i <= saleEnd; i++) {
-        //std::cerr << i << std::endl;
         char date_str[6];
         dayOffsetToDate(i, date_str);
         packSeatKey(key_buf, trainID, date_str);
-        // for (int i = 0; i < SEAT_KEY_LEN; i++) {
-        //     std::cerr << key_buf[i];
-        // }
-        // std::cerr << std::endl;
         ComposedKey<SEAT_KEY_LEN> ck;
         memcpy(ck.fixed_key.key, key_buf, SEAT_KEY_LEN);
-
+        //std::cerr << i << std::endl;
         for (int seg = 0; seg < stationNum - 1; seg++) {
             //std::cerr << seg << std::endl;
             ck.rid = seg;
             seat_index_.Insert(ck, seatNum);
             //std::cerr << "finish insert" << std::endl;
         } 
+        //std::cerr << "check" << std::endl;
         //std::cerr << trainID << " " << date_str << " " << std::endl;
     }
     // WritePageGuard guard = bpm_->WritePage(seat_index_header_page_id_);

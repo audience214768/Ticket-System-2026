@@ -151,6 +151,7 @@ void UserManager::clearLoginTable() {
 void UserManager::Reset() {
     clearLoginTable();
     have_user_ = false;
+    user_name_index_.Reset();
     WritePageGuard guard = bpm_->WritePage(header_page_id_);
     auto *header = guard.AsMut<UserListHeaderPage>();
     header->magic_num = 0xDEADBEEF;

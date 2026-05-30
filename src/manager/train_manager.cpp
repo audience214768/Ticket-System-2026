@@ -18,7 +18,10 @@ TrainManager::TrainManager(shared_ptr<BufferPoolManager> bpm,
     station_data_fid_(station_data_fid),
     station_lookup_index_(station_lookup_fid, station_lookup_fid << FILE_BIT, bpm_) {}
 
-void TrainManager::Reset() {}
+void TrainManager::Reset() {
+    train_index_.Reset();
+    station_lookup_index_.Reset();
+}
 
 auto TrainManager::addTrain(const char *trainID, const TrainRecord &meta,
                              const vector<StationRecord> &stations, long long timestamp) -> bool {

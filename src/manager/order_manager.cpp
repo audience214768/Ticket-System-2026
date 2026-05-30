@@ -108,6 +108,7 @@ auto OrderManager::getOrderByRecordId(size_t record_id) -> OrderRecord {
 }
 
 void OrderManager::Reset() {
+    order_index_.Reset();
     WritePageGuard guard = bpm_->WritePage(order_data_header_page_id_);
     auto *header = guard.AsMut<OrderPageHeader>();
     header->magic_num = 0xDEADBEEF;

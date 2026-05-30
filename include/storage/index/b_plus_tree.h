@@ -57,6 +57,8 @@ class BPlusTree {
 
   auto Update(const KeyType &key, const ValueType &value) -> bool;
 
+  void Reset();
+
   void GetValue(const KeyType &key, vector<ValueType> *result);
 
  private:
@@ -99,6 +101,14 @@ BPLUSTREE_TYPE::BPlusTree(
     header_page->magic_num_ = 0xDEADBEEF;
   }
   //std::cerr << LEAF_PAGE_SLOT_CNT << " " << INTERNAL_PAGE_SLOT_CNT << std::endl;
+}
+
+INDEX_TEMPLATE_ARGUMENTS
+void BPLUSTREE_TYPE::Reset() {
+  WritePageGuard guard = bpm_->WritePage(header_page_id_);
+  auto header_page = guard.AsMut<BPlusTreeHeaderPage>();
+  header_page->root_page_id_ = INVALID_PAGE_ID;
+  header_page->magic_num_ = 0xDEADBEEF;
 }
 
 INDEX_TEMPLATE_ARGUMENTS

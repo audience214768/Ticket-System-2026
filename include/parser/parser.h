@@ -64,7 +64,7 @@ static constexpr short days[13] = {0, 31, 28, 31,30,31, 30, 31, 31,30,31, 30, 31
 inline auto dateToDayOffset(const char *date) -> int { 
     int mm = (date[0] - '0') * 10 + (date[1] - '0');
     int dd = (date[3] - '0') * 10 + (date[4] - '0');
-    if (mm > 12) {
+    if (mm > 12 || dd > days[mm] || dd == 0) {
         throw Exception("invalid date");
     }
     int ret = 0;

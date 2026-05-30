@@ -367,7 +367,7 @@ ReleaseTrain::ReleaseTrain(int argc, char *argv[], shared_ptr<TrainManager> trai
 }
 
 void ReleaseTrain::execute() {
-    //std::cerr << "release train" << " " << current_timestamp << std::endl;
+    std::cerr << "release train" << std::endl;
     if (!train_manager_->releaseTrain(train_id_.data)) {
         throw Exception("release_train: train not found or already released");
     }
@@ -506,7 +506,13 @@ void QueryTicket::execute() {
 
     vector<TicketResult> results;
 
-    int query_day = dateToDayOffset(date_.data);
+    int query_day;
+    try {
+        query_day = dateToDayOffset(date_.data);
+    } catch (const Exception &) {
+        printf("[%lld] 0\n", current_timestamp);
+        return;
+    }
     //std::cerr << date_.data << " " << query_day << std::endl;
     size_t i = 0, j = 0;
     while (i < trains_from.size() && j < trains_to.size()) {
@@ -653,7 +659,13 @@ void QueryTransfer::execute() {
         return strcmp(a.second.trainID, b.second.trainID) < 0;
     };
 
-    int query_day = dateToDayOffset(date_.data);
+    int query_day;
+    try {
+        query_day = dateToDayOffset(date_.data);
+    } catch (const Exception &) {
+        printf("[%lld] 0\n", current_timestamp);
+        return;
+    }
     //std::cerr << query_day << std::endl;
     for (size_t i = 0; i < trains_from.size(); i++) {
         const char *tid1 = trains_from[i].trainID;
@@ -838,6 +850,9 @@ void BuyTicket::execute() {
     TrainRecord train = train_manager_->getTrain(train_id_.data);
     if (!train.released) {
         throw Exception("buy_ticket: train is not released");
+    }
+    if (train.seatNum < num_.data) {
+        throw Exception("buy ticket: not enough seats");
     }
 
     vector<StationRecord> stations = train_manager_->getStations(train_id_.data);

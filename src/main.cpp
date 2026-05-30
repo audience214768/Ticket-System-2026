@@ -40,9 +40,7 @@ void init() {
     disk_manager.emplace_back(make_shared<DiskManager>(7, "seat_index"));
     disk_manager.emplace_back(make_shared<DiskManager>(8, "waitlist_data"));
     disk_manager.emplace_back(make_shared<DiskManager>(9, "waitlist_index"));
-    // std::filesystem::path p = std::filesystem::absolute("data/user_data");
-    // std::cout << "文件应该在这里: " << p << std::endl;
-    bpm = make_shared<BufferPoolManager>(2000, disk_manager);
+    bpm = make_shared<BufferPoolManager>(1500, disk_manager);
     user_manager = make_shared<UserManager>(bpm, 0, 1);
     train_manager = make_shared<TrainManager>(bpm, 2, 3, 4);
     order_manager = make_shared<OrderManager>(bpm, 5, 6);
