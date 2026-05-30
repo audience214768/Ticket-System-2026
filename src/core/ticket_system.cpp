@@ -692,20 +692,44 @@ void QueryTransfer::execute() {
 
     vector<ToTrain> to_trains;
 
-    struct HashBucket { 
-        char stationName[STATION_NAME_LEN * 5 + 1]; 
-        int head; 
-        bool used; 
+    struct HashBucket {
+        char stationName[STATION_NAME_LEN * 5 + 1];
+        int head;
+        bool used;
     };
-    struct MatchEntry { 
-        int train_idx; 
-        int m2; 
-        int next; 
+    struct MatchEntry {
+        int train_idx;
+        int m2;
+        int next;
     };
 
+    int total_entries = 0;
+
+    for (size_t j = 0; j < trains_to.size(); j++) {
+        const char *tid2 = trains_to[j].trainID;
+        int seq2 = trains_to[j].seq;
+
+        auto train_data2 = train_manager_->getTrainData(tid2);
+        if (!train_data2.meta.released) {
+            continue;
+        }
+
+        ToTrain tt;
+        tt.meta = train_data2.meta;
+        tt.stations = train_data2.stations;
+        tt.seq = seq2;
+        tt.arr_t_min = train_data2.meta.startTime + train_data2.stations[seq2].travelTime + train_data2.stations[seq2].stopTime;
+        strcpy(tt.trainID, tid2);
+        to_trains.push_back(tt);
+        total_entries += seq2;
+    }
+
     int hs = 1;
-    while (hs < static_cast<int>(trains_to.size()) * 200) {
-        hs <<= 1;
+    while (hs < total_entries * 2) { 
+        hs <<= 1; 
+    }
+    if (hs < 16) {
+        hs = 16;
     }
     int hmask = hs - 1;
     vector<HashBucket> htable;
@@ -716,25 +740,10 @@ void QueryTransfer::execute() {
     }
     vector<MatchEntry> match_entries;
 
-    for (size_t j = 0; j < trains_to.size(); j++) {
-        const char *tid2 = trains_to[j].trainID;
-        int seq2 = trains_to[j].seq;
-
-        auto train_data2 = train_manager_->getTrainData(tid2);
-        if (!train_data2.meta.released) continue;
-
-        ToTrain tt;
-        tt.meta = train_data2.meta;
-        tt.stations = train_data2.stations;
-        tt.seq = seq2;
-        tt.arr_t_min = train_data2.meta.startTime + train_data2.stations[seq2].travelTime + train_data2.stations[seq2].stopTime;
-        strcpy(tt.trainID, tid2);
-        int ti = to_trains.size();
-        to_trains.push_back(tt);
-
-        for (int m2 = 0; m2 < seq2; m2++) {
-            const char *sname = train_data2.stations[m2].stationName;
-
+    for (int ti = 0; ti < static_cast<int>(to_trains.size()); ti++) {
+        ToTrain &tt = to_trains[ti];
+        for (int m2 = 0; m2 < tt.seq; m2++) {
+            const char *sname = tt.stations[m2].stationName;
             int idx = hash_djb2(sname) & hmask;
             int ins_start = idx;
             while (htable[idx].used && strcmp(htable[idx].stationName, sname) != 0) {
