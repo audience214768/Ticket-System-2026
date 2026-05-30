@@ -50,6 +50,12 @@ class TrainManager {
 
     auto getStations(const char *trainID) -> vector<StationRecord>;
 
+    struct TrainData {
+        TrainRecord meta;
+        vector<StationRecord> stations;
+    };
+    auto getTrainData(const char *trainID) -> TrainData;
+
     auto getStation(const char *trainID, int seq) -> StationRecord;
 
     auto getTrainsByStation(const char *stationName) -> vector<StationLookupValue>;

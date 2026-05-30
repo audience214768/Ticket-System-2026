@@ -29,7 +29,7 @@ auto TrainManager::addTrain(const char *trainID, const TrainRecord &meta,
     {
         ComposedKey<TRAIN_ID_LEN + 1> ck;
         strcpy(ck.fixed_key.key, trainID);
-        ck.is_min = true;
+        ck.rid = RID_MIN;
         vector<page_id_t> tmp;
         train_index_.GetValue(ck, &tmp);
         if (!tmp.empty()) return false;
@@ -100,7 +100,7 @@ auto TrainManager::addTrain(const char *trainID, const TrainRecord &meta,
 auto TrainManager::deleteTrain(const char *trainID) -> bool {
     ComposedKey<TRAIN_ID_LEN + 1> tk;
     strcpy(tk.fixed_key.key, trainID);
-    tk.is_min = true;
+    tk.rid = RID_MIN;
     vector<page_id_t> results;
     train_index_.GetValue(tk, &results);
     if (results.empty()) {
@@ -152,7 +152,6 @@ auto TrainManager::deleteTrain(const char *trainID) -> bool {
         bpm_->DeletePage(page1);
     }
 
-    tk.is_min = false;
     tk.rid = 0;
     train_index_.Remove(tk);
 
@@ -162,7 +161,7 @@ auto TrainManager::deleteTrain(const char *trainID) -> bool {
 auto TrainManager::releaseTrain(const char *trainID) -> bool {
     ComposedKey<TRAIN_ID_LEN + 1> tk;
     strcpy(tk.fixed_key.key, trainID);
-    tk.is_min = true;
+    tk.rid = RID_MIN;
     vector<page_id_t> results;
     train_index_.GetValue(tk, &results);
     if (results.empty()) {
@@ -184,7 +183,7 @@ auto TrainManager::releaseTrain(const char *trainID) -> bool {
 auto TrainManager::getTrain(const char *trainID) -> TrainRecord {
     ComposedKey<TRAIN_ID_LEN + 1> tk;
     strcpy(tk.fixed_key.key, trainID);
-    tk.is_min = true;
+    tk.rid = RID_MIN;
     vector<page_id_t> results;
     train_index_.GetValue(tk, &results);
     if (results.empty()) {
@@ -203,7 +202,7 @@ auto TrainManager::getStations(const char *trainID) -> vector<StationRecord> {
 
     ComposedKey<TRAIN_ID_LEN + 1> tk;
     strcpy(tk.fixed_key.key, trainID);
-    tk.is_min = true;
+    tk.rid = RID_MIN;
     vector<page_id_t> results;
     train_index_.GetValue(tk, &results);
     if (results.empty()) return result;
@@ -238,10 +237,52 @@ auto TrainManager::getStations(const char *trainID) -> vector<StationRecord> {
     return result;
 }
 
+auto TrainManager::getTrainData(const char *trainID) -> TrainData {
+    TrainData data;
+
+    ComposedKey<TRAIN_ID_LEN + 1> tk;
+    strcpy(tk.fixed_key.key, trainID);
+    tk.rid = RID_MIN;
+    vector<page_id_t> results;
+    train_index_.GetValue(tk, &results);
+    if (results.empty()) {
+        throw Exception("train not found");
+    }
+
+    page_id_t page0 = results[0];
+    page_id_t page1;
+
+    {
+        ReadPageGuard guard = bpm_->ReadPage(page0);
+        const auto *raw = guard.As<char>();
+        memcpy(&data.meta, raw, sizeof(TrainRecord));
+        memcpy(&page1, raw + TRAIN_PAGE1_OFFSET, sizeof(page_id_t));
+
+        int n0 = data.meta.stationNum < STATIONS_PER_PAGE0 ? data.meta.stationNum : STATIONS_PER_PAGE0;
+        data.stations.reserve(data.meta.stationNum);
+        const auto *src = reinterpret_cast<const StationRecord *>(raw + TRAIN_STATIONS_OFFSET);
+        for (int i = 0; i < n0; i++) {
+            data.stations.push_back(src[i]);
+        }
+    }
+
+    if (page1 != INVALID_PAGE_ID) {
+        ReadPageGuard guard = bpm_->ReadPage(page1);
+        const auto *raw = guard.As<char>();
+        int n1 = data.meta.stationNum - STATIONS_PER_PAGE0;
+        const auto *src = reinterpret_cast<const StationRecord *>(raw);
+        for (int i = 0; i < n1; i++) {
+            data.stations.push_back(src[i]);
+        }
+    }
+
+    return data;
+}
+
 auto TrainManager::getStation(const char *trainID, int seq) -> StationRecord {
     ComposedKey<TRAIN_ID_LEN + 1> tk;
     strcpy(tk.fixed_key.key, trainID);
-    tk.is_min = true;
+    tk.rid = RID_MIN;
     vector<page_id_t> results;
     train_index_.GetValue(tk, &results);
     if (results.empty()) {
@@ -272,7 +313,7 @@ auto TrainManager::getStation(const char *trainID, int seq) -> StationRecord {
 auto TrainManager::getTrainsByStation(const char *stationName) -> vector<StationLookupValue> {
     ComposedKey<STATION_NAME_LEN * 5> sk;
     strcpy(sk.fixed_key.key, stationName);
-    sk.is_min = true;
+    sk.rid = RID_MIN;
     vector<StationLookupValue> result;
     station_lookup_index_.GetValue(sk, &result);
     return result;

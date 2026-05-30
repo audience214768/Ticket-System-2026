@@ -78,7 +78,7 @@ auto SeatManager::getSeats(const char *trainID, const char *date) -> vector<int>
     packSeatKey(key_buf, trainID, date);
     ComposedKey<SEAT_KEY_LEN> ck;
     memcpy(ck.fixed_key.key, key_buf, SEAT_KEY_LEN);
-    ck.is_min = true;
+    ck.rid = RID_MIN;
     vector<int> result;
     seat_index_.GetValue(ck, &result);
     //WritePageGuard guard = bpm_->WritePage(seat_index_header_page_id_);
@@ -93,7 +93,7 @@ auto SeatManager::deductSeats(const char *trainID, const char *date,
 
     ComposedKey<SEAT_KEY_LEN> ck;
     memcpy(ck.fixed_key.key, key_buf, SEAT_KEY_LEN);
-    ck.is_min = true;
+    ck.rid = RID_MIN;
     vector<int> seats;
     seat_index_.GetValue(ck, &seats);
 
@@ -117,7 +117,7 @@ void SeatManager::refundSeats(const char *trainID, const char *date,
 
     ComposedKey<SEAT_KEY_LEN> ck;
     memcpy(ck.fixed_key.key, key_buf, SEAT_KEY_LEN);
-    ck.is_min = true;
+    ck.rid = RID_MIN;
     vector<int> seats;
     seat_index_.GetValue(ck, &seats);
 
@@ -176,7 +176,7 @@ auto SeatManager::getWaitlist(const char *trainID, const char *date) -> vector<W
     packSeatKey(key_buf, trainID, date);
     ComposedKey<SEAT_KEY_LEN> key;
     memcpy(key.fixed_key.key, key_buf, SEAT_KEY_LEN);
-    key.is_min = true;
+    key.rid = RID_MIN;
 
     vector<size_t> record_ids;
     waitlist_index_.GetValue(key, &record_ids);
@@ -204,7 +204,7 @@ auto SeatManager::processWaitlist(const char *trainID, const char *date) -> vect
     packSeatKey(key_buf, trainID, date);
     ComposedKey<SEAT_KEY_LEN> ck;
     memcpy(ck.fixed_key.key, key_buf, SEAT_KEY_LEN);
-    ck.is_min = true;
+    ck.rid = RID_MIN;
     vector<int> seats;
     seat_index_.GetValue(ck, &seats);
 

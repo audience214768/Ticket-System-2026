@@ -58,7 +58,7 @@ auto OrderManager::getOrders(const char *username) -> vector<OrderRecord> {
     //std::cerr << "start to get order" << std::endl;
     ComposedKey<USER_NAME_LEN + 1> key;
     strcpy(key.fixed_key.key, username);
-    key.is_min = true;
+    key.rid = RID_MIN;
     vector<size_t> record_ids;
     order_index_.GetValue(key, &record_ids);
     //std::cerr << record_ids.size() << std::endl;
@@ -88,7 +88,7 @@ void OrderManager::updateOrderStatus(size_t record_id, OrderStatus newStatus) {
 void OrderManager::updateOrderStatus(const char *username, long long timestamp, OrderStatus newStatus) {
     ComposedKey<USER_NAME_LEN + 1> key;
     strcpy(key.fixed_key.key, username);
-    key.is_min = true;
+    key.rid = RID_MIN;
     vector<size_t> record_ids;
     order_index_.GetValue(key, &record_ids);
 

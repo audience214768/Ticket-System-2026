@@ -13,12 +13,13 @@ struct FixedString {
   }
 };
 
+constexpr int RID_MIN = (-2147483647 - 1);
+
 template<size_t len>
 struct ComposedKey {
   static const size_t LEN = len;
   FixedString<len> fixed_key;
   int rid;
-  bool is_min = false;
   auto GetKey() const -> string {
     return fixed_key.ToString();
   }
@@ -32,10 +33,10 @@ class Compare {
       if (cmp != 0) {
         return cmp;
       }
-      if (a.rid < b.rid || a.is_min) {
+      if (a.rid < b.rid) {
         return -1;
-      } 
-      if (a.rid > b.rid || b.is_min) {
+      }
+      if (a.rid > b.rid) {
         return 1;
       }
       return 0;

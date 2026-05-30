@@ -33,14 +33,6 @@ class UserManager {
     BPlusTree<ComposedKey<USER_NAME_LEN + 1>, size_t, Compare> user_name_index_;
     static constexpr int LOG_HASH_SIZE = 1 << 10;
     UserNode *log_table[1024] = {nullptr};
-    auto hash_djb2(const char *str) -> unsigned long {
-        unsigned long hash = 5381;
-        int c;
-        while ((c = *str++)) {
-            hash = ((hash << 5) + hash) + c;
-        }
-        return hash;
-    }
   public:
     UserManager(shared_ptr<BufferPoolManager> bpm, size_t user_list_fid, size_t user_name_index_fid);
     auto haveUser() -> bool {

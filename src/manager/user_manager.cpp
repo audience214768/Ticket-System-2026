@@ -7,6 +7,7 @@
 #include "page/page_guard.h"
 #include "shared_ptr/shared_ptr.hpp"
 #include "type/type.hpp"
+#include "utils/hash.h"
 
 using sjtu::shared_ptr;
 
@@ -72,7 +73,7 @@ auto UserManager::addUser(const char *user_name, const UserRecord &record) -> bo
 auto UserManager::getUserIndex(const char *user_name) -> size_t {
     ComposedKey<USER_NAME_LEN + 1> key;
     strcpy(key.fixed_key.key, user_name);
-    key.is_min = true;
+    key.rid = RID_MIN;
     vector<size_t> result;
     user_name_index_.GetValue(key, &result);
     //std::cerr << user_name << " " << result.size() << std::endl;
