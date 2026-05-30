@@ -1,8 +1,5 @@
-#include <iostream>
 #include <cstdio>
 #include <cstdlib>
-#include <ostream>
-
 #include "buffer/buffer_pool_manager.h"
 #include "utils/err.h"
 #include "disk/disk_manager.h"
@@ -147,10 +144,5 @@ int main() {
         }
         delete command;
         //std::cerr << std::endl;
-    }
-    try {
-        user_manager->getUserIndex("BluePoison");
-    } catch(...) {
-
     }
 }
