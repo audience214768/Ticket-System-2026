@@ -61,6 +61,9 @@ class BPlusTree {
 
   void GetValue(const KeyType &key, vector<ValueType> *result);
 
+  template<typename Func>
+  void ScanAndUpdate(const KeyType &key, Func&& func);
+
  private:
 
   //auto FindLeaf(const KeyType &key, Context &ctx, bool is_opt) -> page_id_t;
@@ -239,6 +242,33 @@ void BPLUSTREE_TYPE::GetValue(const KeyType &key, vector<ValueType> *result) {
     if (i == leaf_page->GetSize() && leaf_page->GetNextPageId() != INVALID_PAGE_ID) {
       leaf_page_guard = bpm_->ReadPage(leaf_page->GetNextPageId());
       leaf_page = leaf_page_guard.As<LeafPage>();
+      i = 0;
+    } else {
+      break;
+    }
+  }
+}
+
+INDEX_TEMPLATE_ARGUMENTS
+template<typename Func>
+void BPLUSTREE_TYPE::ScanAndUpdate(const KeyType &key, Func&& func) {
+  Context ctx;
+  auto leaf_page_id = FindLeafPess(key, ctx);
+  if (ctx.root_page_id_ == INVALID_PAGE_ID) {
+    return;
+  }
+  WritePageGuard leaf_page_guard = bpm_->WritePage(leaf_page_id);
+  LeafPage *leaf_page = leaf_page_guard.AsMut<LeafPage>();
+  auto index = leaf_page->Search(key, compare_);
+  int i = index + 1;
+  while (true) {
+    for (; i < leaf_page->GetSize() && memcmp(leaf_page->KeyAt(i).fixed_key.key, key.fixed_key.key, key.LEN) == 0; i++) {
+      ValueType new_val = func(leaf_page->KeyAt(i), leaf_page->ValueAt(i));
+      leaf_page->SetValueAt(i, new_val);
+    }
+    if (i == leaf_page->GetSize() && leaf_page->GetNextPageId() != INVALID_PAGE_ID) {
+      leaf_page_guard = bpm_->WritePage(leaf_page->GetNextPageId());
+      leaf_page = leaf_page_guard.AsMut<LeafPage>();
       i = 0;
     } else {
       break;

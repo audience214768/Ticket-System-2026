@@ -63,10 +63,15 @@ auto OrderManager::getOrders(const char *username) -> vector<OrderRecord> {
     order_index_.GetValue(key, &record_ids);
     //std::cerr << record_ids.size() << std::endl;
     vector<OrderRecord> orders;
+    page_id_t current_page_id = INVALID_PAGE_ID;
+    ReadPageGuard guard;
     for (int i = record_ids.size() - 1; i >= 0; i--) {
         page_id_t page_id = record_ids[i] / OrderPage::Num;
         size_t offset = record_ids[i] % OrderPage::Num;
-        ReadPageGuard guard = bpm_->ReadPage(page_id);
+        if (page_id != current_page_id) {
+            current_page_id = page_id;
+            guard = bpm_->ReadPage(page_id);
+        }
         orders.push_back(guard.As<OrderPage>()->data[offset]);
     }
 

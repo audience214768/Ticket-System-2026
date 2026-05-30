@@ -101,13 +101,12 @@ auto SeatManager::deductSeats(const char *trainID, const char *date,
         if (seats[seg] < num) return false;
     }
 
-    ComposedKey<SEAT_KEY_LEN> base_key;
-    memcpy(base_key.fixed_key.key, key_buf, SEAT_KEY_LEN);
-    for (int seg = from; seg < to; seg++) {
-        ComposedKey<SEAT_KEY_LEN> key = base_key;
-        key.rid = seg;
-        seat_index_.Update(key, seats[seg] - num);
-    }
+    seat_index_.ScanAndUpdate(ck, [from, to, num](const ComposedKey<SEAT_KEY_LEN>& key, int old_val) -> int {
+        if (key.rid >= from && key.rid < to) {
+            return old_val - num;
+        }
+        return old_val;
+    });
     return true;
 }
 
@@ -122,13 +121,12 @@ void SeatManager::refundSeats(const char *trainID, const char *date,
     vector<int> seats;
     seat_index_.GetValue(ck, &seats);
 
-    ComposedKey<SEAT_KEY_LEN> base_key;
-    memcpy(base_key.fixed_key.key, key_buf, SEAT_KEY_LEN);
-    for (int seg = from; seg < to; seg++) {
-        ComposedKey<SEAT_KEY_LEN> key = base_key;
-        key.rid = seg;
-        seat_index_.Update(key, seats[seg] + num);
-    }
+    seat_index_.ScanAndUpdate(ck, [from, to, num](const ComposedKey<SEAT_KEY_LEN>& key, int old_val) -> int {
+        if (key.rid >= from && key.rid < to) {
+            return old_val + num;
+        }
+        return old_val;
+    });
 }
 
 auto SeatManager::addToWaitlist(const char *trainID, const char *date,
@@ -210,9 +208,6 @@ auto SeatManager::processWaitlist(const char *trainID, const char *date) -> vect
     vector<int> seats;
     seat_index_.GetValue(ck, &seats);
 
-    ComposedKey<SEAT_KEY_LEN> base_key;
-    memcpy(base_key.fixed_key.key, key_buf, SEAT_KEY_LEN);
-
     for (size_t i = 0; i < wait_list.size(); i++) {
         int from = wait_list[i].fromSeq;
         int to = wait_list[i].toSeq;
@@ -226,12 +221,14 @@ auto SeatManager::processWaitlist(const char *trainID, const char *date) -> vect
         }
         if (!enough) continue;
 
-        for (int seg = from; seg < to; seg++) {
-            seats[seg] -= num;
-            ComposedKey<SEAT_KEY_LEN> key = base_key;
-            key.rid = seg;
-            seat_index_.Update(key, seats[seg]);
-        }
+        seat_index_.ScanAndUpdate(ck, [from, to, num, &seats](const ComposedKey<SEAT_KEY_LEN>& key, int old_val) -> int {
+            if (key.rid >= from && key.rid < to) {
+                int new_val = old_val - num;
+                seats[key.rid] = new_val;
+                return new_val;
+            }
+            return old_val;
+        });
         fulfilled.push_back(wait_list[i]);
         removeFromWaitlist(trainID, date, wait_list[i].timestamp);
     }
