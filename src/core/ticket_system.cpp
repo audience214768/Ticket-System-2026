@@ -704,8 +704,8 @@ void QueryTransfer::execute() {
     };
 
     int hs = 1;
-    while (hs < static_cast<int>(trains_to.size()) * 4) { 
-        hs <<= 1; 
+    while (hs < static_cast<int>(trains_to.size()) * 200) {
+        hs <<= 1;
     }
     int hmask = hs - 1;
     vector<HashBucket> htable;
@@ -734,10 +734,14 @@ void QueryTransfer::execute() {
 
         for (int m2 = 0; m2 < seq2; m2++) {
             const char *sname = train_data2.stations[m2].stationName;
-            
+
             int idx = hash_djb2(sname) & hmask;
+            int ins_start = idx;
             while (htable[idx].used && strcmp(htable[idx].stationName, sname) != 0) {
                 idx = (idx + 1) & hmask;
+                if (idx == ins_start) {
+                    break;
+                }
             }
             if (!htable[idx].used) {
                 strcpy(htable[idx].stationName, sname);
@@ -758,17 +762,23 @@ void QueryTransfer::execute() {
         int seq1 = trains_from[i].seq;
 
         auto train_data1 = train_manager_->getTrainData(tid1);
-        if (!train_data1.meta.released) continue;
+        if (!train_data1.meta.released) {
+            continue;
+        }
 
         TrainRecord &train1 = train_data1.meta;
         vector<StationRecord> &st1 = train_data1.stations;
-        if (st1.size() - 1 == seq1) continue;
+        if (st1.size() - 1 == seq1) {
+            continue;
+        }
 
         int dep_s_min = train1.startTime + st1[seq1].travelTime + st1[seq1 + 1].stopTime;
         int origin_day1 = query_day - dep_s_min / 1440;
         int sale_begin1 = train1.saleDateBegin;
         int sale_end1 = train1.saleDateEnd;
-        if (origin_day1 < sale_begin1 || origin_day1 > sale_end1) continue;
+        if (origin_day1 < sale_begin1 || origin_day1 > sale_end1) {
+            continue;
+        }
 
         char origin_date1[6];
         dayOffsetToDate(origin_day1, origin_date1);
@@ -786,10 +796,13 @@ void QueryTransfer::execute() {
 
             int min_seat1 = seats1_v[seq1];
             for (int s = seq1; s < m1; s++) {
-                if (seats1_v[s] < min_seat1) { min_seat1 = seats1_v[s]; }
+                if (seats1_v[s] < min_seat1) { 
+                    min_seat1 = seats1_v[s]; 
+                }
             }
 
             int idx = hash_djb2(st1[m1].stationName) & hmask;
+            int start_idx = idx;
             while (htable[idx].used) {
                 if (strcmp(htable[idx].stationName, st1[m1].stationName) == 0) {
                     for (int e = htable[idx].head; e != -1; e = match_entries[e].next) {
@@ -850,6 +863,9 @@ void QueryTransfer::execute() {
                     break;
                 }
                 idx = (idx + 1) & hmask;
+                if (idx == start_idx) {
+                    break;
+                }
             }
         }
     }
