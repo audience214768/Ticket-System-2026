@@ -1,7 +1,0 @@
-/Users/audience/program/data-structure/ticket-system/build/CMakeFiles/edit_cache.dir
-/Users/audience/program/data-structure/ticket-system/build/CMakeFiles/rebuild_cache.dir
-/Users/audience/program/data-structure/ticket-system/build/lib/my-STL/CMakeFiles/edit_cache.dir
-/Users/audience/program/data-structure/ticket-system/build/lib/my-STL/CMakeFiles/rebuild_cache.dir
-/Users/audience/program/data-structure/ticket-system/build/src/CMakeFiles/code.dir
-/Users/audience/program/data-structure/ticket-system/build/src/CMakeFiles/edit_cache.dir
-/Users/audience/program/data-structure/ticket-system/build/src/CMakeFiles/rebuild_cache.dir
