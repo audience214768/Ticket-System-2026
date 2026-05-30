@@ -1,0 +1,9 @@
+{
+	"InstallScripts" : 
+	[
+		"/Users/audience/program/data-structure/ticket-system/build/cmake_install.cmake",
+		"/Users/audience/program/data-structure/ticket-system/build/lib/my-STL/cmake_install.cmake",
+		"/Users/audience/program/data-structure/ticket-system/build/src/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

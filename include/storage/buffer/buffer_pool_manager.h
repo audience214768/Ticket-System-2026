@@ -1,0 +1,92 @@
+#pragma once
+
+#include "replacer.h"
+#include "common/config.h"
+#include "disk/disk_manager.h"
+#include "disk/disk_scheduler.h"
+#include "page/page_guard.h"
+#include "vector/vector.hpp"
+#include "shared_ptr/shared_ptr.hpp"
+
+#include <condition_variable>
+#include <shared_mutex>
+#include <mutex>
+
+using std::mutex;
+using std::unique_lock;
+using std::atomic;
+using std::shared_mutex;
+using std::condition_variable;
+
+using sjtu::vector;
+using sjtu::shared_ptr;
+using sjtu::make_shared;
+
+class BufferPoolManager;
+
+class FrameInfo {
+  friend BufferPoolManager;
+  friend ReadPageGuard;
+  friend WritePageGuard;
+ private:
+  bool is_dirty_ = false;
+  page_id_t page_id_; 
+  frame_id_t frame_id_;
+  atomic<size_t> pin_count_ = 0;
+  //vector<char> data_;
+  char data_[DISK_PAGE_SIZE];
+  shared_mutex frame_mutex_;
+  bool is_loading_ = false;
+  condition_variable cv_;
+  //size_t lsn_;
+
+  auto GetData() -> const char * {
+    return data_; 
+  }
+  auto GetDataMut() -> char * { 
+    //std::cerr << *reinterpret_cast<size_t *>(data_) << std::endl;
+    return data_; 
+  }
+  void Reset() {
+    is_dirty_ = false;
+    page_id_ = INVALID_PAGE_ID;
+  }
+ public:
+  FrameInfo(page_id_t page_id, frame_id_t frame_id) : page_id_(page_id), frame_id_(frame_id) {
+    memset(data_, 0, sizeof(data_));
+  } 
+  ~FrameInfo() = default;
+};
+
+
+struct HashEntry {
+  page_id_t page_id = INVALID_PAGE_ID;
+  frame_id_t frame_id = INVALID_FRAME_ID;
+  bool used = false;
+};
+
+class BufferPoolManager {
+ private:
+  vector<shared_ptr<FrameInfo>> frame_info_;
+  shared_ptr<Replacer> replacer_;
+  vector<frame_id_t> free_list_;
+  shared_ptr<DiskScheduler> disk_scheduler_;
+  HashEntry hash_table[PAGE_HASH_SIZE];
+  size_t frame_num_;
+  shared_ptr<mutex> bpm_mutex_;
+
+  vector<shared_ptr<DiskManager>> disk_manager_;
+  void UseFrame(frame_id_t frame_id, page_id_t page_id, bool is_write, unique_lock<mutex> &lock);
+  void Evict(frame_id_t frame_id, page_id_t page_id, bool is_write, unique_lock<mutex> &lock);
+  void Access(frame_id_t frame_id);
+  auto FindFrame(page_id_t page_id) -> frame_id_t;
+  void InsertHash(frame_id_t frame_id, page_id_t page_id);
+ public:
+  BufferPoolManager(size_t frame_num, const vector<shared_ptr<DiskManager>> &disk_manager);
+  ~BufferPoolManager();
+  auto WritePage(page_id_t page_id) -> WritePageGuard;
+  auto ReadPage(page_id_t page_id) -> ReadPageGuard;
+  auto NewPage(size_t file_id) -> page_id_t;
+  void ClearAll();
+  void DeletePage(page_id_t page_id);
+};

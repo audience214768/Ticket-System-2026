@@ -1,0 +1,167 @@
+
+
+#include "page/page_guard.h"
+#include "buffer/buffer_pool_manager.h"
+#include "common/config.h"
+#include "disk/log_manager.h"
+#include "shared_ptr/shared_ptr.hpp"
+#include <cstdio>
+#include <mutex>
+
+ReadPageGuard::ReadPageGuard(shared_ptr<FrameInfo> frame, shared_ptr<Replacer> replacer, shared_ptr<mutex> bpm_latch)
+    : frame_(std::move(frame)),
+      replacer_(std::move(replacer)),
+      is_valid_(true),
+      bpm_latch_(std::move(bpm_latch)),
+      lock_(frame_->frame_mutex_) {
+        //puts("1");
+      }
+
+ReadPageGuard::ReadPageGuard(ReadPageGuard &&that) noexcept {
+  is_valid_ = that.is_valid_;
+  frame_ = that.frame_;
+  replacer_ = that.replacer_;
+  bpm_latch_ = that.bpm_latch_;
+  lock_ = std::move(that.lock_);
+  that.is_valid_ = false;
+  that.frame_.release();
+  that.replacer_.release();
+  that.bpm_latch_.release();
+}
+
+auto ReadPageGuard::operator=(ReadPageGuard &&that) noexcept -> ReadPageGuard & {
+  if (this == &that) {
+    return *this;
+  }
+  this->Drop();
+  is_valid_ = that.is_valid_;
+  frame_ = that.frame_;
+  replacer_ = that.replacer_;
+  bpm_latch_ = that.bpm_latch_;
+  lock_ = std::move(that.lock_);
+  that.is_valid_ = false;
+  that.frame_.release();
+  that.replacer_.release();
+  that.bpm_latch_.release();
+  return *this;
+}
+
+auto ReadPageGuard::GetPageId() const -> page_id_t {
+  return frame_->page_id_;
+}
+
+/**
+ * @brief Gets a `const` pointer to the page of data this guard is protecting.
+ */
+auto ReadPageGuard::GetData() const -> const char * {
+  //std::cerr << frame_->GetData() << std::endl;
+  return frame_->GetData();
+}
+
+void ReadPageGuard::Drop() {
+  if (!is_valid_) {
+    return;
+  }
+  frame_->pin_count_--;
+  if (lock_.owns_lock()) {
+    lock_.unlock();
+  }
+  is_valid_ = false;
+  unique_lock<mutex> lock(*bpm_latch_);
+  if (frame_->pin_count_ == 0) {
+    replacer_->SetEvictable(frame_->frame_id_, true);
+  }
+  frame_.release();
+  replacer_.release();
+  bpm_latch_.release();
+}
+
+ReadPageGuard::~ReadPageGuard() { Drop(); }
+
+WritePageGuard::WritePageGuard(
+  shared_ptr<FrameInfo> frame, 
+  shared_ptr<Replacer> replacer, 
+  shared_ptr<mutex> bpm_latch/*,
+  shared_ptr<LogManager> log_manager*/
+) : frame_(std::move(frame)), 
+    replacer_(replacer),
+    is_valid_(true),
+    bpm_latch_(bpm_latch),
+    lock_(frame_->frame_mutex_)/*,
+    log_manager_(std::move(log_manager))*/ {
+      //std::cerr << *reinterpret_cast<size_t *>(frame_->GetDataMut()) << std::endl;
+    }
+
+
+WritePageGuard::WritePageGuard(WritePageGuard &&that) noexcept {
+  is_valid_ = that.is_valid_;
+  frame_ = that.frame_;
+  replacer_ = that.replacer_;
+  bpm_latch_ = that.bpm_latch_;
+  lock_ = std::move(that.lock_);
+  //log_manager_ = that.log_manager_;
+  that.is_valid_ = false;
+  that.frame_.release();
+  that.replacer_.release();
+  that.bpm_latch_.release();
+  //that.log_manager_.release();
+}
+
+auto WritePageGuard::operator=(WritePageGuard &&that) noexcept -> WritePageGuard & {
+  if (this == &that) {
+    return *this;
+  }
+  this->Drop();
+  is_valid_ = that.is_valid_;
+  frame_ = that.frame_;
+  replacer_ = that.replacer_;
+  bpm_latch_ = that.bpm_latch_;
+  //log_manager_ = that.log_manager_;
+  lock_ = std::move(that.lock_);
+  that.is_valid_ = false;
+  that.frame_.release();
+  that.replacer_.release();
+  that.bpm_latch_.release();
+  //that.log_manager_.release();
+  return *this;
+}
+
+
+auto WritePageGuard::GetPageId() const -> page_id_t {
+  return frame_->page_id_;
+}
+
+auto WritePageGuard::GetData() const -> const char * {
+  return frame_->GetData();
+}
+
+auto WritePageGuard::GetDataMut() -> char * {
+  //std::cerr << *reinterpret_cast<size_t *>(frame_->GetDataMut()) << std::endl;
+  return frame_->GetDataMut();
+}
+
+
+void WritePageGuard::Drop() {
+  if (!is_valid_) {
+    return;
+  }
+  //log_manager_->AppendLog(frame_->page_id_, frame_->GetData());
+  frame_->pin_count_--;
+  if (lock_.owns_lock()) {
+    // std::cerr << "unlock" << std::endl;
+    lock_.unlock();
+  }
+  is_valid_ = false;
+  unique_lock<mutex> lock(*bpm_latch_);
+  if (frame_->pin_count_ == 0) {
+    replacer_->SetEvictable(frame_->frame_id_, true);
+  }
+  frame_.release();
+  replacer_.release();
+  bpm_latch_.release();
+  //log_manager_.release();
+}
+
+/** @brief The destructor for `WritePageGuard`. This destructor simply calls `Drop()`. */
+WritePageGuard::~WritePageGuard() { Drop(); }
+

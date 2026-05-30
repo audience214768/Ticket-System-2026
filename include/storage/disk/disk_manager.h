@@ -1,0 +1,53 @@
+#pragma once
+
+#include "common/config.h"
+#include <mutex>
+#include <string>
+#include <unistd.h>
+
+using std::string;
+using std::mutex;
+
+enum OpType {READY, WRITE, FINISH};
+
+struct LogHeader {
+  OpType type;
+  int offset;
+  int data_size;
+  unsigned int checksum;
+  unsigned int magic = 0xDEADBEEF;
+};
+
+
+class DiskManager {
+ private:
+  size_t fileID_;
+
+  string db_file_name_;
+  int fd_ = -1;
+
+  size_t next_free_page_ = INVALID_PAGE_ID;
+  size_t next_page_id_ = 1;
+
+  mutex io_mutex_;
+
+  int info_len = 2;
+  #define OFFSET(page_id) ((page_id) * DISK_PAGE_SIZE + info_len *sizeof(page_id_t))
+
+ public:
+  DiskManager() = delete;
+  explicit DiskManager(size_t file_id, const string &db_file_name);
+  ~DiskManager();
+
+  void ReadPage(page_id_t page_id, char *data);
+  void WritePage(page_id_t page_id, const char *data);
+  auto NewPage() -> page_id_t;
+  void DeletePage(page_id_t page_id);
+
+  void WriteLog(const char *log, int size);
+
+  void Clear();
+
+  auto GetFileSize() -> size_t;
+
+};

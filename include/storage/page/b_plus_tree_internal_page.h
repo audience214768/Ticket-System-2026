@@ -1,0 +1,242 @@
+
+
+#pragma once
+
+#include "vector/vector.hpp"
+#include "common/config.h"
+#include "page/b_plus_tree_page.h"
+
+using sjtu::vector;
+using std::cerr;
+using std::endl;
+using std::memmove;
+
+#define B_PLUS_TREE_INTERNAL_PAGE_TYPE BPlusTreeInternalPage<KeyType, ValueType, Compare>
+
+INDEX_TEMPLATE_ARGUMENTS
+class BPlusTreeInternalPage : public BPlusTreePage {
+ const static size_t INTERNAL_PAGE_HEADER_SIZE = 16;
+ const static size_t INTERNAL_PAGE_SLOT_CNT = ((DISK_PAGE_SIZE - INTERNAL_PAGE_HEADER_SIZE) / ((sizeof(KeyType) + sizeof(ValueType))));
+ public:
+  BPlusTreeInternalPage() = delete;
+  BPlusTreeInternalPage(const BPlusTreeInternalPage &other) = delete;
+
+  void Init(int max_size = INTERNAL_PAGE_SLOT_CNT);
+
+  auto KeyAt(int index) const -> const KeyType &;
+
+  void SetKeyAt(int index, const KeyType &key);
+
+  auto ValueIndex(const ValueType &value) const -> int;
+
+  auto ValueAt(int index) const -> const ValueType &;
+  void SetValueAt(int index, const ValueType &value);
+  auto Search(const KeyType &key, const Compare &compare) const -> int;
+  void Insert(const KeyType &key, const ValueType &value, const Compare &compare);
+  void Delete(const KeyType &key, const Compare &compare);
+  auto MoveHalf(B_PLUS_TREE_INTERNAL_PAGE_TYPE *other, const KeyType &key, const ValueType &value, int index) -> KeyType;
+  auto MoveBack(B_PLUS_TREE_INTERNAL_PAGE_TYPE *other, const KeyType &key) -> KeyType;
+  auto MoveFront(B_PLUS_TREE_INTERNAL_PAGE_TYPE *other, const KeyType &key) -> KeyType;
+  void Merge(B_PLUS_TREE_INTERNAL_PAGE_TYPE *other, const KeyType &key);
+
+  void ToString() const {
+    cerr << "(";
+    bool first = true;
+    cerr << ValueAt(0);
+    // First key of internal page is always invalid
+    for (int i = 1; i < GetSize(); i++) {
+      KeyType key = KeyAt(i);
+
+      cerr << "," << key.GetKey() << " " << key.rid << " " << ValueAt(i);
+    }
+    cerr << ")" << endl;
+  }
+
+ private:
+  KeyType key_array_[INTERNAL_PAGE_SLOT_CNT];
+  ValueType page_id_array_[INTERNAL_PAGE_SLOT_CNT];
+};
+
+INDEX_TEMPLATE_ARGUMENTS
+void B_PLUS_TREE_INTERNAL_PAGE_TYPE::Init(int max_size) {
+  if (max_size == 0) {
+    max_size = INTERNAL_PAGE_SLOT_CNT;
+  }
+  SetMaxSize(max_size);
+  SetSize(0);
+  SetPageType(IndexPageType::INTERNAL_PAGE);
+}
+
+
+INDEX_TEMPLATE_ARGUMENTS
+auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::KeyAt(int index) const -> const KeyType &{
+  return key_array_[index];
+}
+
+
+INDEX_TEMPLATE_ARGUMENTS
+void B_PLUS_TREE_INTERNAL_PAGE_TYPE::SetKeyAt(int index, const KeyType &key) {
+  key_array_[index] = key;
+}
+
+
+INDEX_TEMPLATE_ARGUMENTS
+auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::ValueAt(int index) const -> const ValueType &{
+  return page_id_array_[index];
+}
+
+INDEX_TEMPLATE_ARGUMENTS
+void B_PLUS_TREE_INTERNAL_PAGE_TYPE::SetValueAt(int index, const ValueType &value) {
+  page_id_array_[index] = value;
+}
+
+INDEX_TEMPLATE_ARGUMENTS
+auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::Search(const KeyType &key, const Compare &compare) const -> int {
+  int l = 1, r = GetSize();
+  int ans = 0;
+  while(l < r) {
+    int m = (l + r) >> 1;
+    //std::cerr << key << " " << KeyAt(m) << std::endl;
+    if(compare(key, key_array_[m]) >= 0) {
+      ans = m;
+      //std::cerr << l << " " << r << " " << ans << std::endl;
+      l = m + 1;
+    } else {
+      r = m;
+    }
+  }
+  return ans;
+}
+
+INDEX_TEMPLATE_ARGUMENTS
+void B_PLUS_TREE_INTERNAL_PAGE_TYPE::Insert(const KeyType &key, const ValueType &value, const Compare &compare) {
+  int index = Search(key, compare);
+  //std::cerr << GetSize() << " " << GetMaxSize() << " " << sizeof(KeyType) << " " << sizeof(ValueType) << " " << ((DISK_PAGE_SIZE - INTERNAL_PAGE_HEADER_SIZE) / ((sizeof(KeyType) + sizeof(ValueType)))) << " " << INTERNAL_PAGE_SLOT_CNT << std::endl;
+  //std::cerr << key << " insert in the " << index << std::endl;
+  // for(int i = GetSize(); i > index + 1; i--) {
+  //   key_array_[i] = key_array_[i - 1];
+  //   page_id_array_[i] = page_id_array_[i - 1];
+  // }
+  memmove(key_array_ + index + 2, key_array_ + index + 1, (GetSize() - index - 1) * sizeof(KeyType));
+  memmove(page_id_array_ + index + 2, page_id_array_ + index + 1, (GetSize() - index - 1) * sizeof(ValueType));
+  key_array_[index + 1] = key;
+  page_id_array_[index + 1] = value;
+  SetSize(GetSize() + 1);
+}
+
+INDEX_TEMPLATE_ARGUMENTS
+void B_PLUS_TREE_INTERNAL_PAGE_TYPE::Delete(const KeyType &key, const Compare &compare) {
+  int index = Search(key, compare);
+  //std::cerr << "delete index : " << index << std::endl;
+  // for(int i = index; i < GetSize() - 1; i++) {
+  //   key_array_[i] = key_array_[i + 1];
+  //   page_id_array_[i] = page_id_array_[i + 1];
+  //   //std::cerr << page_id_array_[i] << std::endl;
+  // }
+  memmove(key_array_ + index, key_array_ + index + 1, (GetSize() - index - 1) * sizeof(KeyType));
+  memmove(page_id_array_ + index, page_id_array_ + index + 1, (GetSize() - index - 1) * sizeof(ValueType));
+  SetSize(GetSize() - 1);
+}
+
+INDEX_TEMPLATE_ARGUMENTS
+auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::MoveHalf(B_PLUS_TREE_INTERNAL_PAGE_TYPE *other, const KeyType &key, const ValueType &value, int index) -> KeyType {
+  vector<KeyType> key_vector;
+  vector<ValueType> value_vector;
+  key_vector.reserve(other->GetSize() + 1);
+  value_vector.reserve(other->GetSize() + 1);
+  for(int i = 0; i < other->GetSize(); i++) {
+    key_vector.push_back(other->key_array_[i]);
+    value_vector.push_back(other->page_id_array_[i]);
+    if(i == index) {
+      key_vector.push_back(key);
+      value_vector.push_back(value);
+    }
+  }
+  // for(int i = 0; i <= other->GetSize() / 2; i++) {
+  //   other->key_array_[i] = key_vector[i];
+  //   other->page_id_array_[i] = value_vector[i];
+  // }
+  memmove(other->key_array_, key_vector.data(), (other->GetSize() / 2 + 1) * sizeof(KeyType));
+  memmove(other->page_id_array_, value_vector.data(), (other->GetSize() / 2 + 1) * sizeof(ValueType));
+  // for(int i = other->GetSize() / 2 + 1; i <= other->GetSize(); i++) {
+  //   key_array_[i - other->GetSize() / 2 - 1] = key_vector[i];
+  //   page_id_array_[i - other->GetSize() / 2 - 1] = value_vector[i];
+  // }
+  memmove(key_array_, key_vector.data() + other->GetSize() / 2 + 1, (other->GetSize() - other->GetSize() / 2) * sizeof(KeyType));
+  memmove(page_id_array_, value_vector.data() + other->GetSize() / 2 + 1, (other->GetSize() - other->GetSize() / 2) * sizeof(ValueType));
+  SetSize((other->GetSize() + 1) / 2);
+  other->SetSize(other->GetSize() / 2 + 1);
+  return key_vector[other->GetSize()];
+}
+
+INDEX_TEMPLATE_ARGUMENTS
+auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::MoveBack(B_PLUS_TREE_INTERNAL_PAGE_TYPE *other, const KeyType &key) -> KeyType { // move the back of this to the other
+  int new_size = (GetSize() + other->GetSize()) >> 1;
+  // for(int i = other->GetSize() - 1; i >= 0; i--) {
+  //   other->key_array_[i + new_size - other->GetSize()] = i == 0 ? key : other->key_array_[i];
+  //   other->page_id_array_[i + new_size - other->GetSize()] = other->page_id_array_[i];
+  // }
+  memmove(other->key_array_ + new_size - other->GetSize(), other->key_array_, other->GetSize() * sizeof(KeyType));
+  memmove(other->page_id_array_ + new_size - other->GetSize(), other->page_id_array_, other->GetSize() * sizeof(ValueType));
+  other->key_array_[new_size - other->GetSize()] = key;
+  // for(int i = 0; i < new_size - other->GetSize(); i++) {
+  //   other->key_array_[i] = key_array_[GetSize() - (new_size - other->GetSize()) + i];
+  //   other->page_id_array_[i] = page_id_array_[GetSize() - (new_size - other->GetSize()) + i];
+  // } 
+  memmove(other->key_array_, key_array_ + GetSize() - (new_size - other->GetSize()), (new_size - other->GetSize()) * sizeof(KeyType));
+  memmove(other->page_id_array_, page_id_array_ + GetSize() - (new_size - other->GetSize()), (new_size - other->GetSize()) * sizeof(ValueType));
+  SetSize(GetSize() - (new_size - other->GetSize()));
+  other->SetSize(new_size);
+  return other->key_array_[0];
+}
+
+INDEX_TEMPLATE_ARGUMENTS
+auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::MoveFront(B_PLUS_TREE_INTERNAL_PAGE_TYPE *other, const KeyType &key) -> KeyType {
+  int new_size = (GetSize() + other->GetSize()) >> 1;
+  // for(int i = other->GetSize(); i < new_size; i++) {
+  //   other->key_array_[i] = i == other->GetSize() ? key : key_array_[i - other->GetSize()];
+  //   other->page_id_array_[i] = page_id_array_[i - other->GetSize()];
+  //   //std::cerr << other->page_id_array_[i] << " ";
+  // }
+  memmove(other->key_array_ + other->GetSize(), key_array_, (new_size - other->GetSize()) * sizeof(KeyType));
+  memmove(other->page_id_array_ + other->GetSize(), page_id_array_, (new_size - other->GetSize()) * sizeof(ValueType));
+  other->key_array_[other->GetSize()] = key;
+  int size = GetSize() + other->GetSize() - new_size;
+  // for(int i = 0; i < size; i++) {
+  //   key_array_[i] = key_array_[i + new_size - other->GetSize()];
+  //   page_id_array_[i] = page_id_array_[i + new_size - other->GetSize()];
+  //   //std::cerr << page_id_array_[i] << " ";
+  // }
+  memmove(key_array_, key_array_ + new_size - other->GetSize(), size * sizeof(KeyType));
+  memmove(page_id_array_, page_id_array_ + new_size - other->GetSize(), size * sizeof(ValueType));
+  //std::cerr << std::endl;
+  other->SetSize(new_size);
+  SetSize(size);
+  return key_array_[0];
+}
+
+INDEX_TEMPLATE_ARGUMENTS
+void B_PLUS_TREE_INTERNAL_PAGE_TYPE::Merge(B_PLUS_TREE_INTERNAL_PAGE_TYPE *other, const KeyType &key) {
+  // for (int i = 0; i < GetSize(); i++) {
+  //   std::cerr << page_id_array_[i] << " ";
+  // }
+  // std::cerr << std::endl;
+  // for (int i = 0; i < other->GetSize(); i++) {
+  //   std::cerr << other->page_id_array_[i] << " ";
+  // }
+  // std::cerr << GetSize() << " " << other->GetSize() << " " << INTERNAL_PAGE_SLOT_CNT << std::endl;
+  // for(int i = GetSize(); i < GetSize() + other->GetSize(); i++) {
+  //   key_array_[i] = (i == GetSize() ? key : other->key_array_[i - GetSize()]);
+  //   page_id_array_[i] = other->page_id_array_[i - GetSize()];
+  // }
+  memmove(key_array_ + GetSize(), other->key_array_, other->GetSize() * sizeof(KeyType));
+  memmove(page_id_array_ + GetSize(), other->page_id_array_, other->GetSize() * sizeof(ValueType));
+  key_array_[GetSize()] = key;
+  SetSize(GetSize() + other->GetSize());
+  // for (int i = 0; i < GetSize(); i++) {
+  //   std::cerr << page_id_array_[i] << " ";
+  // }
+  // std::cerr << std::endl;
+  other->SetSize(0);
+}
+
