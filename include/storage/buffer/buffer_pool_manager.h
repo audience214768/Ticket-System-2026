@@ -71,7 +71,8 @@ class BufferPoolManager {
   shared_ptr<Replacer> replacer_;
   vector<frame_id_t> free_list_;
   shared_ptr<DiskScheduler> disk_scheduler_;
-  HashEntry hash_table[PAGE_HASH_SIZE];
+  vector<HashEntry> hash_table_;
+  size_t hash_table_mask_;
   size_t frame_num_;
   shared_ptr<mutex> bpm_mutex_;
 

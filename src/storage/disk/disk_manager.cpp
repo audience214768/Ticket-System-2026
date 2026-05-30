@@ -1,5 +1,6 @@
 #include "disk/disk_manager.h"
 #include "common/config.h"
+#include "utils/err.h"
 #include <cstring>
 #include <fcntl.h>
 #include <mutex>
@@ -49,6 +50,9 @@ auto DiskManager::NewPage() -> page_id_t {
     ::pread(fd_, &next_free_page_, sizeof(page_id_t), OFFSET(next_free_page_ % DISK_FILE_SIZE));
     //std::cerr << "new" << " " << last_free_page << " " << next_free_page_ << std::endl;
     return (fileID_ << FILE_BIT) | last_free_page;
+  }
+  if (next_page_id_ >= DISK_FILE_SIZE) {
+    throw Exception("disk file page exhausted");
   }
   return (fileID_ << FILE_BIT) | next_page_id_++;
 }

@@ -26,6 +26,14 @@ BufferPoolManager::BufferPoolManager(size_t frame_num, const vector<shared_ptr<D
     //frame_info_[i]->Reset();
     free_list_.push_back(i);
   }
+  size_t table_size = 1;
+  while (table_size < frame_num * 4) {
+    table_size <<= 1;
+  }
+  for (size_t i = 0; i < table_size; i++) {
+    hash_table_.push_back(HashEntry());
+  }
+  hash_table_mask_ = table_size - 1;
 }
 
 auto BufferPoolManager::NewPage(size_t file_id) -> page_id_t {
@@ -42,30 +50,26 @@ auto BufferPoolManager::NewPage(size_t file_id) -> page_id_t {
   return new_page_id;
 }
 
-inline auto hash(page_id_t page_id) -> int {
-    return page_id & (PAGE_HASH_SIZE - 1);
-}
-
 void BufferPoolManager::InsertHash(frame_id_t frame_id, page_id_t page_id) {
-  int idx = hash(page_id);
-  while (hash_table[idx].page_id != INVALID_PAGE_ID) {
-    idx = (idx + 1) & (PAGE_HASH_SIZE - 1);
+  int idx = page_id & hash_table_mask_;
+  while (hash_table_[idx].page_id != INVALID_PAGE_ID) {
+    idx = (idx + 1) & hash_table_mask_;
   }
-  hash_table[idx].page_id = page_id;
-  hash_table[idx].frame_id = frame_id;
-  hash_table[idx].used = true;
+  hash_table_[idx].page_id = page_id;
+  hash_table_[idx].frame_id = frame_id;
+  hash_table_[idx].used = true;
 }
 
 auto BufferPoolManager::FindFrame(page_id_t page_id) -> frame_id_t {
-  int idx = hash(page_id);
+  int idx = page_id & hash_table_mask_;
   int tmp = idx;
-  while (hash_table[idx].used) {
-    if (hash_table[idx].page_id == page_id) {
+  while (hash_table_[idx].used) {
+    if (hash_table_[idx].page_id == page_id) {
       //std::cerr << "get " << (tmp - idx) << std::endl;
-      //std::cerr << page_id << " " << hash_table[idx].frame_id << std::endl;
-      return hash_table[idx].frame_id;
+      //std::cerr << page_id << " " << hash_table_[idx].frame_id << std::endl;
+      return hash_table_[idx].frame_id;
     }
-    idx = (idx + 1) & (PAGE_HASH_SIZE - 1);
+    idx = (idx + 1) & hash_table_mask_;
     if (idx == tmp) {
       break;
     }
@@ -102,14 +106,14 @@ void BufferPoolManager::UseFrame(frame_id_t frame_id, page_id_t page_id, bool is
 }
 
 void BufferPoolManager::Evict(frame_id_t frame_id, page_id_t page_id, bool is_write, unique_lock<mutex> &lock) {
-  auto idx = hash(frame_info_[frame_id]->page_id_);
-  while (hash_table[idx].used) {
-    if (hash_table[idx].page_id == frame_info_[frame_id]->page_id_) {
-      hash_table[idx].page_id = INVALID_PAGE_ID;
-      hash_table[idx].frame_id = INVALID_FRAME_ID;
+  auto idx = frame_info_[frame_id]->page_id_ & hash_table_mask_;
+  while (hash_table_[idx].used) {
+    if (hash_table_[idx].page_id == frame_info_[frame_id]->page_id_) {
+      hash_table_[idx].page_id = INVALID_PAGE_ID;
+      hash_table_[idx].frame_id = INVALID_FRAME_ID;
       break;
     }
-    idx = (idx + 1) & (PAGE_HASH_SIZE - 1);
+    idx = (idx + 1) & hash_table_mask_;
   }
   InsertHash(frame_id, page_id);
   page_id_t old_page_id = frame_info_[frame_id]->page_id_;
@@ -229,14 +233,14 @@ void BufferPoolManager::DeletePage(page_id_t page_id) {
     assert(frame_info_[frame_id]->pin_count_ == 0);
     frame_info_[frame_id]->Reset();
     free_list_.push_back(frame_id);
-    auto idx = hash(page_id);
-    while (hash_table[idx].used) {
-      if (hash_table[idx].page_id == page_id) {
-        hash_table[idx].page_id = INVALID_PAGE_ID;
-        hash_table[idx].frame_id = INVALID_FRAME_ID;
+    auto idx = page_id & hash_table_mask_;
+    while (hash_table_[idx].used) {
+      if (hash_table_[idx].page_id == page_id) {
+        hash_table_[idx].page_id = INVALID_PAGE_ID;
+        hash_table_[idx].frame_id = INVALID_FRAME_ID;
         break;
       }
-      idx = (idx + 1) & (PAGE_HASH_SIZE - 1);
+      idx = (idx + 1) & hash_table_mask_;
     }
   }
   {
@@ -259,7 +263,11 @@ void BufferPoolManager::ClearAll() {
   for (size_t i = 0; i < frame_num_; i++) {
     frame_info_[i]->Reset();
   }
-  memset(hash_table, 0, sizeof(hash_table));
+  for (size_t i = 0; i < hash_table_.size(); i++) {
+    hash_table_[i].page_id = INVALID_PAGE_ID;
+    hash_table_[i].frame_id = INVALID_FRAME_ID;
+    hash_table_[i].used = false;
+  }
   free_list_.clear();
   for (size_t i = 0; i < frame_num_; i++) {
     free_list_.push_back(i);

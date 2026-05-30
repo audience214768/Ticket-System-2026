@@ -367,7 +367,7 @@ ReleaseTrain::ReleaseTrain(int argc, char *argv[], shared_ptr<TrainManager> trai
 }
 
 void ReleaseTrain::execute() {
-    std::cerr << "release train" << std::endl;
+    //std::cerr << "release train" << std::endl;
     if (!train_manager_->releaseTrain(train_id_.data)) {
         throw Exception("release_train: train not found or already released");
     }
