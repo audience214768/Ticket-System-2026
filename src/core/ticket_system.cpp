@@ -682,88 +682,25 @@ void QueryTransfer::execute() {
         return;
     }
 
+    // Pre-fetch all trains_to data to avoid repeated getTrainData in inner loop
     struct ToTrain {
         TrainRecord meta;
         vector<StationRecord> stations;
         int seq;
-        int arr_t_min; // pre-computed
         char trainID[TRAIN_ID_LEN + 1];
     };
-
     vector<ToTrain> to_trains;
-
-    struct HashBucket {
-        char stationName[STATION_NAME_LEN * 5 + 1];
-        int head;
-        bool used;
-    };
-    struct MatchEntry {
-        int train_idx;
-        int m2;
-        int next;
-    };
-
-    int total_entries = 0;
-
     for (size_t j = 0; j < trains_to.size(); j++) {
-        const char *tid2 = trains_to[j].trainID;
-        int seq2 = trains_to[j].seq;
-
-        auto train_data2 = train_manager_->getTrainData(tid2);
+        auto train_data2 = train_manager_->getTrainData(trains_to[j].trainID);
         if (!train_data2.meta.released) {
             continue;
         }
-
         ToTrain tt;
         tt.meta = train_data2.meta;
         tt.stations = train_data2.stations;
-        tt.seq = seq2;
-        tt.arr_t_min = train_data2.meta.startTime + train_data2.stations[seq2].travelTime + train_data2.stations[seq2].stopTime;
-        strcpy(tt.trainID, tid2);
+        tt.seq = trains_to[j].seq;
+        strcpy(tt.trainID, trains_to[j].trainID);
         to_trains.push_back(tt);
-        total_entries += seq2;
-    }
-
-    int hs = 1;
-    while (hs < total_entries * 2) { 
-        hs <<= 1; 
-    }
-    if (hs < 16) {
-        hs = 16;
-    }
-    int hmask = hs - 1;
-    vector<HashBucket> htable;
-    for (int k = 0; k < hs; k++) {
-        HashBucket b = {};
-        b.head = -1;
-        htable.push_back(b);
-    }
-    vector<MatchEntry> match_entries;
-
-    for (int ti = 0; ti < static_cast<int>(to_trains.size()); ti++) {
-        ToTrain &tt = to_trains[ti];
-        for (int m2 = 0; m2 < tt.seq; m2++) {
-            const char *sname = tt.stations[m2].stationName;
-            int idx = hash_djb2(sname) & hmask;
-            int ins_start = idx;
-            while (htable[idx].used && strcmp(htable[idx].stationName, sname) != 0) {
-                idx = (idx + 1) & hmask;
-                if (idx == ins_start) {
-                    break;
-                }
-            }
-            if (!htable[idx].used) {
-                strcpy(htable[idx].stationName, sname);
-                htable[idx].head = -1;
-                htable[idx].used = true;
-            }
-            MatchEntry me;
-            me.train_idx = ti;
-            me.m2 = m2;
-            me.next = htable[idx].head;
-            htable[idx].head = match_entries.size();
-            match_entries.push_back(me);
-        }
     }
 
     for (size_t i = 0; i < trains_from.size(); i++) {
@@ -796,84 +733,82 @@ void QueryTransfer::execute() {
         char leave1_formatted[20];
         formatTime(origin_date1, dep_s_min, leave1_formatted);
 
-        for (int m1 = seq1 + 1; m1 < train1.stationNum; m1++) {
-            int arr_m_min = train1.startTime + st1[m1].travelTime + st1[m1].stopTime;
-            int travel1 = arr_m_min - dep_s_min;
-            int price1 = st1[m1].price - st1[seq1].price;
-            char arrive1_formatted[20];
-            formatTime(origin_date1, arr_m_min, arrive1_formatted);
-
-            int min_seat1 = seats1_v[seq1];
-            for (int s = seq1; s < m1; s++) {
-                if (seats1_v[s] < min_seat1) { 
-                    min_seat1 = seats1_v[s]; 
-                }
+        for (size_t j = 0; j < to_trains.size(); j++) {
+            const char *tid2 = to_trains[j].trainID;
+            int seq2 = to_trains[j].seq;
+            if (strcmp(tid1, tid2) == 0) {
+                continue;
             }
 
-            int idx = hash_djb2(st1[m1].stationName) & hmask;
-            int start_idx = idx;
-            while (htable[idx].used) {
-                if (strcmp(htable[idx].stationName, st1[m1].stationName) == 0) {
-                    for (int e = htable[idx].head; e != -1; e = match_entries[e].next) {
-                        int ti = match_entries[e].train_idx;
-                        int m2 = match_entries[e].m2;
+            TrainRecord &train2 = to_trains[j].meta;
+            vector<StationRecord> &st2 = to_trains[j].stations;
 
-                        ToTrain &tt = to_trains[ti];
-                        if (strcmp(tid1, tt.trainID) == 0) {
-                            continue;
-                        }
+            int arr_t_min = train2.startTime + st2[seq2].travelTime + st2[seq2].stopTime;
 
-                        int dep_m_min = tt.meta.startTime + tt.stations[m2].travelTime + tt.stations[m2 + 1].stopTime;
-                        int diff = origin_day1 * 1440 + arr_m_min - dep_m_min;
-                        int origin_day2 = (diff + 1439) / 1440;
+            for (int m1 = seq1 + 1; m1 < train1.stationNum; m1++) {
+                int arr_m_min = train1.startTime + st1[m1].travelTime + st1[m1].stopTime;
+                int travel1 = arr_m_min - dep_s_min;
+                int price1 = st1[m1].price - st1[seq1].price;
+                char arrive1_formatted[20];
+                formatTime(origin_date1, arr_m_min, arrive1_formatted);
 
-                        int sale_begin2 = tt.meta.saleDateBegin;
-                        int sale_end2 = tt.meta.saleDateEnd;
-                        if (origin_day2 > sale_end2) continue;
-                        origin_day2 = std::max(origin_day2, sale_begin2);
-                        char origin_date2[6];
-                        dayOffsetToDate(origin_day2, origin_date2);
+                int min_seat1 = seats1_v[seq1];
+                for (int s = seq1; s < m1; s++) {
+                    if (seats1_v[s] < min_seat1) {
+                        min_seat1 = seats1_v[s];
+                    }
+                }
 
-                        int travel2 = tt.arr_t_min - dep_m_min;
-                        int price2 = tt.stations[tt.seq].price - tt.stations[m2].price;
+                for (int m2 = 0; m2 < seq2; m2++) {
+                    if (strcmp(st1[m1].stationName, st2[m2].stationName) != 0) {
+                        continue;
+                    }
 
-                        vector<int> seats2_v = seat_manager_->getSeats(tt.trainID, origin_date2);
-                        int min_seat2 = seats2_v[m2];
-                        for (int s = m2; s < tt.seq; s++) {
-                            if (seats2_v[s] < min_seat2) { 
-                                min_seat2 = seats2_v[s]; 
-                            }
-                        }
+                    int dep_m_min = train2.startTime + st2[m2].travelTime + st2[m2 + 1].stopTime;
+                    int diff = origin_day1 * 1440 + arr_m_min - dep_m_min;
+                    int origin_day2 = (diff + 1439) / 1440;
 
-                        TransferResult cur;
-                        strcpy(cur.first.trainID, tid1);
-                        strcpy(cur.first.from, start_station_.data);
-                        strcpy(cur.first.to, st1[m1].stationName);
-                        strcpy(cur.first.leave_time, leave1_formatted);
-                        strcpy(cur.first.arrive_time, arrive1_formatted);
-                        cur.first.price = price1;
-                        cur.first.seat = min_seat1;
-                        cur.first.total_time = travel1;
+                    if (origin_day2 > train2.saleDateEnd) {
+                        continue;
+                    }
+                    origin_day2 = (origin_day2 > train2.saleDateBegin) ? origin_day2 : train2.saleDateBegin;
+                    char origin_date2[6];
+                    dayOffsetToDate(origin_day2, origin_date2);
 
-                        strcpy(cur.second.trainID, tt.trainID);
-                        strcpy(cur.second.from, tt.stations[m2].stationName);
-                        strcpy(cur.second.to, end_station_.data);
-                        formatTime(origin_date2, dep_m_min, cur.second.leave_time);
-                        formatTime(origin_date2, tt.arr_t_min, cur.second.arrive_time);
-                        cur.second.price = price2;
-                        cur.second.seat = min_seat2;
-                        cur.second.total_time = travel2;
-                        cur.total_time = origin_day2 * 1440 + tt.arr_t_min - origin_day1 * 1440 - dep_s_min;
-                        if (!found || better(cur, best)) {
-                            best = cur;
-                            found = true;
+                    int travel2 = arr_t_min - dep_m_min;
+                    int price2 = st2[seq2].price - st2[m2].price;
+
+                    vector<int> seats2_v = seat_manager_->getSeats(tid2, origin_date2);
+                    int min_seat2 = seats2_v[m2];
+                    for (int s = m2; s < seq2; s++) {
+                        if (seats2_v[s] < min_seat2) {
+                            min_seat2 = seats2_v[s];
                         }
                     }
-                    break;
-                }
-                idx = (idx + 1) & hmask;
-                if (idx == start_idx) {
-                    break;
+
+                    TransferResult cur;
+                    strcpy(cur.first.trainID, tid1);
+                    strcpy(cur.first.from, start_station_.data);
+                    strcpy(cur.first.to, st1[m1].stationName);
+                    strcpy(cur.first.leave_time, leave1_formatted);
+                    strcpy(cur.first.arrive_time, arrive1_formatted);
+                    cur.first.price = price1;
+                    cur.first.seat = min_seat1;
+                    cur.first.total_time = travel1;
+
+                    strcpy(cur.second.trainID, tid2);
+                    strcpy(cur.second.from, st2[m2].stationName);
+                    strcpy(cur.second.to, end_station_.data);
+                    formatTime(origin_date2, dep_m_min, cur.second.leave_time);
+                    formatTime(origin_date2, arr_t_min, cur.second.arrive_time);
+                    cur.second.price = price2;
+                    cur.second.seat = min_seat2;
+                    cur.second.total_time = travel2;
+                    cur.total_time = origin_day2 * 1440 + arr_t_min - origin_day1 * 1440 - dep_s_min;
+                    if (!found || better(cur, best)) {
+                        best = cur;
+                        found = true;
+                    }
                 }
             }
         }
