@@ -74,6 +74,7 @@ class BufferPoolManager {
   vector<HashEntry> hash_table_;
   size_t hash_table_mask_;
   size_t frame_num_;
+  size_t tombstone_count_ = 0;
   shared_ptr<mutex> bpm_mutex_;
 
   vector<shared_ptr<DiskManager>> disk_manager_;
@@ -82,6 +83,7 @@ class BufferPoolManager {
   void Access(frame_id_t frame_id);
   auto FindFrame(page_id_t page_id) -> frame_id_t;
   void InsertHash(frame_id_t frame_id, page_id_t page_id);
+  void Rehash();
  public:
   BufferPoolManager(size_t frame_num, const vector<shared_ptr<DiskManager>> &disk_manager);
   ~BufferPoolManager();

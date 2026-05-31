@@ -28,7 +28,7 @@ BufferPoolManager::BufferPoolManager(size_t frame_num, const vector<shared_ptr<D
     free_list_.push_back(i);
   }
   size_t table_size = 1;
-  while (table_size < frame_num * 6) {
+  while (table_size < frame_num * 8) {
     table_size <<= 1;
   }
   hash_table_.reserve(table_size);
@@ -57,6 +57,9 @@ void BufferPoolManager::InsertHash(frame_id_t frame_id, page_id_t page_id) {
   while (hash_table_[idx].page_id != INVALID_PAGE_ID) {
     idx = (idx + 1) & hash_table_mask_;
   }
+  if (hash_table_[idx].used) {
+    tombstone_count_--;
+  }
   hash_table_[idx].page_id = page_id;
   hash_table_[idx].frame_id = frame_id;
   hash_table_[idx].used = true;
@@ -77,6 +80,32 @@ auto BufferPoolManager::FindFrame(page_id_t page_id) -> frame_id_t {
     }
   }
   return INVALID_FRAME_ID;
+}
+
+void BufferPoolManager::Rehash() {
+  size_t table_size = hash_table_.size();
+  vector<HashEntry> old_table;
+  old_table.reserve(table_size);
+  for (size_t i = 0; i < table_size; i++) {
+    old_table.push_back(hash_table_[i]);
+  }
+  for (size_t i = 0; i < table_size; i++) {
+    hash_table_[i].page_id = INVALID_PAGE_ID;
+    hash_table_[i].frame_id = INVALID_FRAME_ID;
+    hash_table_[i].used = false;
+  }
+  tombstone_count_ = 0;
+  for (size_t i = 0; i < table_size; i++) {
+    if (old_table[i].page_id != INVALID_PAGE_ID) {
+      int idx = hash_page(old_table[i].page_id, hash_table_mask_);
+      while (hash_table_[idx].page_id != INVALID_PAGE_ID) {
+        idx = (idx + 1) & hash_table_mask_;
+      }
+      hash_table_[idx].page_id = old_table[i].page_id;
+      hash_table_[idx].frame_id = old_table[i].frame_id;
+      hash_table_[idx].used = true;
+    }
+  }
 }
 
 void BufferPoolManager::UseFrame(frame_id_t frame_id, page_id_t page_id, bool is_write, unique_lock<mutex> &lock) {
@@ -113,6 +142,10 @@ void BufferPoolManager::Evict(frame_id_t frame_id, page_id_t page_id, bool is_wr
     if (hash_table_[idx].page_id == frame_info_[frame_id]->page_id_) {
       hash_table_[idx].page_id = INVALID_PAGE_ID;
       hash_table_[idx].frame_id = INVALID_FRAME_ID;
+      tombstone_count_++;
+      if (tombstone_count_ > hash_table_.size() / 4) {
+        Rehash();
+      }
       break;
     }
     idx = (idx + 1) & hash_table_mask_;
@@ -240,6 +273,10 @@ void BufferPoolManager::DeletePage(page_id_t page_id) {
       if (hash_table_[idx].page_id == page_id) {
         hash_table_[idx].page_id = INVALID_PAGE_ID;
         hash_table_[idx].frame_id = INVALID_FRAME_ID;
+        tombstone_count_++;
+        if (tombstone_count_ > hash_table_.size() / 4) {
+          Rehash();
+        }
         break;
       }
       idx = (idx + 1) & hash_table_mask_;
@@ -270,6 +307,7 @@ void BufferPoolManager::ClearAll() {
     hash_table_[i].frame_id = INVALID_FRAME_ID;
     hash_table_[i].used = false;
   }
+  tombstone_count_ = 0;
   free_list_.clear();
   for (size_t i = 0; i < frame_num_; i++) {
     free_list_.push_back(i);
