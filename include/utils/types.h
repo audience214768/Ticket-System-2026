@@ -35,13 +35,13 @@ struct StationRecord {
     char stationName[STATION_NAME_LEN * 5];
     int price;             // price from origin
     int travelTime;        // travel time from origin
-    int stopTime;          // cumulative stopover time before arriving at this station
-    size_t lookup_rid;     // counter value for station_lookup deletion
+    int stopTime;
+    size_t lookup_rid;     
 };
 
 struct StationLookupValue {
     char trainID[TRAIN_ID_LEN + 1];
-    int seq;               // station index in this train's route (0-based)
+    int seq;               // station index in this train's route
 };
 
 enum OrderStatus {kSuccess = 0, kPending, kRefunded};

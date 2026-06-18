@@ -78,13 +78,6 @@ auto OrderManager::getOrders(const char *username) -> vector<OrderRecord> {
     return orders;
 }
 
-void OrderManager::updateOrderStatus(size_t record_id, OrderStatus newStatus) {
-    page_id_t page_id = record_id / OrderPage::Num;
-    size_t offset = record_id % OrderPage::Num;
-    WritePageGuard guard = bpm_->WritePage(page_id);
-    guard.AsMut<OrderPage>()->data[offset].status = newStatus;
-}
-
 void OrderManager::updateOrderStatus(const char *username, long long timestamp, OrderStatus newStatus) {
     ComposedKey<USER_NAME_LEN + 1> key;
     strcpy(key.fixed_key.key, username);

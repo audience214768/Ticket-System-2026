@@ -42,8 +42,6 @@ class OrderManager {
 
     auto getOrders(const char *username) -> vector<OrderRecord>;
 
-    void updateOrderStatus(size_t record_id, OrderStatus newStatus);
-
     void updateOrderStatus(const char *username, long long timestamp, OrderStatus newStatus);
 
     auto getOrderByRecordId(size_t record_id) -> OrderRecord;
